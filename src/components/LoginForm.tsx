@@ -21,7 +21,7 @@ export function LoginForm() {
   const fromUrl = searchParams.get("from") || "/";
 
   const [selectedRole, setSelectedRole] = useState<"OWNER" | "AGENT">("OWNER");
-  const [username, setUsername] = useState<string>("owner");
+  const [username, setUsername] = useState<string>("farafull");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -30,28 +30,8 @@ export function LoginForm() {
   const handleSelectRole = (role: "OWNER" | "AGENT") => {
     setSelectedRole(role);
     setErrorMessage(null);
-    setUsername(role === "OWNER" ? "owner" : "agent1");
+    setUsername(role === "OWNER" ? "farafull" : "agent1");
     setPassword("");
-  };
-
-  // 1-Tap Quick Login
-  const handleQuickLogin = async (role: "OWNER" | "AGENT") => {
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    const res = await loginAction({
-      role,
-      isQuickLogin: true,
-    });
-
-    setIsLoading(false);
-
-    if (res.success) {
-      router.push(fromUrl);
-      router.refresh();
-    } else {
-      setErrorMessage(res.error ?? "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
-    }
   };
 
   // Form Submit
@@ -60,7 +40,12 @@ export function LoginForm() {
     setErrorMessage(null);
 
     if (!username.trim()) {
-      setErrorMessage("กรุณากรอกชื่อผู้ใช้งาน");
+      setErrorMessage("กรุณากรอกชื่อผู้ใช้งาน (ID)");
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage("กรุณากรอกรหัสผ่าน (Password)");
       return;
     }
 
@@ -118,7 +103,7 @@ export function LoginForm() {
               <ShieldCheck className={`size-5 mb-1.5 ${selectedRole === "OWNER" ? "text-emerald-400" : "text-emerald-600"}`} />
               <span className="text-xs font-bold">นายทุน (Owner)</span>
               <span className={`text-[10px] mt-0.5 text-center ${selectedRole === "OWNER" ? "text-zinc-300" : "text-zinc-400"}`}>
-                น.ส.ฟิลิปดา (ดูยอดรวม/ทุน)
+                ID: farafull
               </span>
             </button>
 
@@ -135,49 +120,17 @@ export function LoginForm() {
               <UserCheck className={`size-5 mb-1.5 ${selectedRole === "AGENT" ? "text-blue-400" : "text-blue-600"}`} />
               <span className="text-xs font-bold">สายตรวจ (Agent)</span>
               <span className={`text-[10px] mt-0.5 text-center ${selectedRole === "AGENT" ? "text-zinc-300" : "text-zinc-400"}`}>
-                สมชาย (เก็บเงิน/ออกสัญญา)
+                ID: agent1
               </span>
             </button>
           </div>
-        </div>
-
-        {/* 1-Tap Quick Login Button */}
-        <div className="mb-5">
-          <button
-            type="button"
-            onClick={() => handleQuickLogin(selectedRole)}
-            disabled={isLoading}
-            className={`w-full flex items-center justify-between rounded-2xl p-3 text-xs font-bold transition-all active:scale-98 cursor-pointer shadow-2xs border ${
-              selectedRole === "OWNER"
-                ? "bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100/80"
-                : "bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100/80"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className={`size-4 shrink-0 ${selectedRole === "OWNER" ? "text-emerald-600" : "text-blue-600"}`} />
-              <span>
-                {selectedRole === "OWNER"
-                  ? "เข้าสู่ระบบด่วน: น.ส.ฟิลิปดา (นายทุน)"
-                  : "เข้าสู่ระบบด่วน: สมชาย (สายตรวจ)"}
-              </span>
-            </div>
-            <ArrowRight className="size-4 opacity-60" />
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="relative my-4 flex items-center justify-center">
-          <div className="w-full border-t border-zinc-200" />
-          <span className="absolute bg-white px-3 text-[11px] font-medium text-zinc-400">
-            หรือกรอกรหัสผ่าน / PIN
-          </span>
         </div>
 
         {/* Form Inputs */}
         <form onSubmit={handleFormSubmit} className="space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-              ชื่อผู้ใช้งาน (Username)
+              ชื่อผู้ใช้งาน (ID / Username)
             </label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
@@ -186,7 +139,7 @@ export function LoginForm() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={selectedRole === "OWNER" ? "owner" : "agent1"}
+                placeholder={selectedRole === "OWNER" ? "farafull" : "agent1"}
                 className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 pl-10 pr-3.5 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-600 focus:outline-none transition-all"
               />
             </div>
@@ -195,19 +148,17 @@ export function LoginForm() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold text-zinc-700">
-                รหัสผ่าน หรือ PIN 4 หลัก
+                รหัสผ่าน (Password)
               </label>
-              <span className="text-[10px] text-zinc-400">
-                เริ่มต้น: 1234
-              </span>
             </div>
             <div className="relative">
               <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
               <input
                 type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="กรอกรหัสผ่าน (เว้นว่างได้ถ้าใช้ล็อกอินด่วน)"
+                placeholder={selectedRole === "OWNER" ? "กรอกรหัสผ่านนายทุน (farafull2026)" : "กรอกรหัสผ่าน (1234)"}
                 className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 pl-10 pr-3.5 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-600 focus:outline-none transition-all"
               />
             </div>
@@ -230,7 +181,7 @@ export function LoginForm() {
             {isLoading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                <span>กำลังเข้าสู่ระบบ...</span>
+                <span>กำลังตรวจสอบข้อมูล...</span>
               </>
             ) : (
               <>
@@ -244,13 +195,13 @@ export function LoginForm() {
         {/* Hints Footer */}
         <div className="mt-5 rounded-xl border border-zinc-150 bg-zinc-50/80 p-3 text-[11px] text-zinc-500 leading-relaxed">
           <div className="font-semibold text-zinc-700 mb-1 flex items-center gap-1">
-            <span>ℹ️ ข้อมูลบัญชีเริ่มต้นในระบบ:</span>
+            <span>ℹ️ ข้อมูลบัญชีสำหรับเข้าสู่ระบบ:</span>
           </div>
           <p>
-            • <strong>นายทุน:</strong> User: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">owner</code> (รหัส: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">1234</code> หรือ <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">8888</code>)
+            • <strong>นายทุน:</strong> ID: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">farafull</code> (Pass: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">farafull2026</code>)
           </p>
           <p className="mt-0.5">
-            • <strong>สายตรวจ:</strong> User: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">agent1</code> (รหัส: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">1234</code> หรือ <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">1111</code>)
+            • <strong>สายตรวจ:</strong> ID: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">agent1</code> (Pass: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">1234</code>)
           </p>
         </div>
       </div>

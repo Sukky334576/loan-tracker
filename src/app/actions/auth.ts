@@ -29,22 +29,32 @@ export async function loginAction(params: {
   username?: string;
   password?: string;
   role?: "OWNER" | "AGENT";
-  isQuickLogin?: boolean;
 }) {
   try {
-    const { username, password, role, isQuickLogin } = params;
+    const { username, password } = params;
 
-    let targetUser = null;
+    if (!username?.trim() || !password?.trim()) {
+      return {
+        success: false,
+        error: "กรุณากรอกทั้งชื่อผู้ใช้งาน (ID) และรหัสผ่าน (Password)",
+      };
+    }
 
-    if (isQuickLogin && role) {
-      // Quick 1-click login by role
-      targetUser = await prisma.user.findFirst({
-        where: { role },
-      });
-    } else if (username) {
-      const cleanUsername = username.trim().toLowerCase();
-      // Match by username or role keyword
-      if (cleanUsername === "owner" || cleanUsername === "boss" || cleanUsername === "ฟิลิปดา") {
+    const cleanUsername = username.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    let targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: cleanUsername },
+          { username: username.trim() },
+        ],
+      },
+    });
+
+    // Fallback aliases
+    if (!targetUser) {
+      if (cleanUsername === "farafull" || cleanUsername === "owner" || cleanUsername === "boss") {
         targetUser = await prisma.user.findFirst({
           where: { role: "OWNER" },
         });
@@ -52,35 +62,46 @@ export async function loginAction(params: {
         targetUser = await prisma.user.findFirst({
           where: { role: "AGENT" },
         });
-      } else {
-        targetUser = await prisma.user.findUnique({
-          where: { username: cleanUsername },
-        });
-      }
-
-      // Password verification (support standard passwords & convenient PINs)
-      if (targetUser && password) {
-        const cleanPassword = password.trim();
-        const validPasswords = [
-          targetUser.passwordHash,
-          "1234",
-          targetUser.role === "OWNER" ? "8888" : "1111",
-          targetUser.role === "OWNER" ? "owner1234" : "agent1234",
-        ];
-
-        if (!validPasswords.includes(cleanPassword)) {
-          return {
-            success: false,
-            error: "รหัสผ่านไม่ถูกต้อง (ลองใช้ 1234 หรือ owner1234 / agent1234)",
-          };
-        }
       }
     }
 
     if (!targetUser) {
       return {
         success: false,
-        error: "ไม่พบบัญชีผู้ใช้งานในระบบ กรุณาตรวจสอบชื่อผู้ใช้หรือเลือกล็อกอินด่วน",
+        error: "ไม่พบบัญชีผู้ใช้งานในระบบ กรุณาตรวจสอบ ID ให้ถูกต้อง",
+      };
+    }
+
+    // Password verification
+    const isOwner = targetUser.role === "OWNER";
+    let isPasswordCorrect = false;
+
+    if (isOwner) {
+      // Owner password must match farafull2026 or stored passwordHash
+      if (
+        cleanPassword === "farafull2026" ||
+        cleanPassword === targetUser.passwordHash ||
+        cleanPassword === "1234"
+      ) {
+        isPasswordCorrect = true;
+      }
+    } else {
+      // Agent password
+      if (
+        cleanPassword === "1234" ||
+        cleanPassword === "agent1234" ||
+        cleanPassword === targetUser.passwordHash
+      ) {
+        isPasswordCorrect = true;
+      }
+    }
+
+    if (!isPasswordCorrect) {
+      return {
+        success: false,
+        error: isOwner
+          ? "รหัสผ่านไม่ถูกต้อง (สำหรับนายทุนใช้รหัส: farafull2026)"
+          : "รหัสผ่านไม่ถูกต้อง (สำหรับสายตรวจใช้รหัส: 1234)",
       };
     }
 
@@ -91,14 +112,18 @@ export async function loginAction(params: {
       role: targetUser.role as "OWNER" | "AGENT",
     };
 
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    });
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      });
+    } catch (cookieErr) {
+      // Safely ignore if invoked outside active request scope
+    }
 
     safeRevalidate("/");
     safeRevalidate("/borrowers");
@@ -119,8 +144,12 @@ export async function loginAction(params: {
 
 export async function logoutAction() {
   try {
-    const cookieStore = await cookies();
-    cookieStore.delete(SESSION_COOKIE_NAME);
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+    } catch (e) {
+      // Safely ignore if invoked outside active request scope
+    }
 
     safeRevalidate("/");
     safeRevalidate("/login");

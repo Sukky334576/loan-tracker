@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   ShieldCheck, 
   UserCheck, 
@@ -10,8 +10,10 @@ import {
   Users, 
   PlusCircle, 
   Wallet, 
-  History 
+  History,
+  LogOut
 } from "lucide-react";
+import { logoutAction } from "@/app/actions/auth";
 
 interface HeaderProps {
   currentRole: "OWNER" | "AGENT";
@@ -19,8 +21,24 @@ interface HeaderProps {
   userName?: string;
 }
 
-export function Header({ currentRole, onRoleToggle, userName }: HeaderProps) {
+export function Header({ currentRole, userName }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logoutAction();
+      router.push("/login");
+      router.refresh();
+    } catch (e) {
+      console.error("Logout error:", e);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const desktopNavItems = [
     { label: "ยอดวันนี้", href: "/", icon: CalendarCheck },
@@ -55,7 +73,7 @@ export function Header({ currentRole, onRoleToggle, userName }: HeaderProps) {
                 </span>
               </div>
               <p className="text-[10px] text-zinc-400 truncate hidden sm:block">
-                {userName ?? (currentRole === "OWNER" ? "น.ส.ฟิลิปดา (นายทุน)" : "สมชาย สายตรวจ")}
+                {userName ?? (currentRole === "OWNER" ? "farafull (นายทุน)" : "agent1 (สายตรวจ)")}
               </p>
             </div>
           </Link>
@@ -87,25 +105,45 @@ export function Header({ currentRole, onRoleToggle, userName }: HeaderProps) {
           </nav>
         </div>
 
-        {/* Right: Role Switcher Badge with Smooth Hover */}
+        {/* Right: Role Badge & Logout Button */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={onRoleToggle}
-            type="button"
-            aria-label="สลับสิทธิ์การใช้งาน"
-            className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 hover:border-zinc-300 hover:shadow-xs hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer select-none"
-          >
+          {/* User/Role Badge */}
+          <div className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
             {currentRole === "OWNER" ? (
               <>
                 <ShieldCheck className="size-3.5 text-emerald-600" />
-                <span className="text-[11px] font-bold">โหมด: นายทุน</span>
+                <span className="text-[11px] font-bold text-zinc-800">
+                  {userName ?? "farafull"}
+                </span>
+                <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800 hidden xs:inline">
+                  นายทุน
+                </span>
               </>
             ) : (
               <>
                 <UserCheck className="size-3.5 text-blue-600" />
-                <span className="text-[11px] font-bold">โหมด: สายตรวจ</span>
+                <span className="text-[11px] font-bold text-zinc-800">
+                  {userName ?? "agent1"}
+                </span>
+                <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold text-blue-800 hidden xs:inline">
+                  สายตรวจ
+                </span>
               </>
             )}
+          </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            type="button"
+            title="ออกจากระบบ"
+            className="flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 transition-all duration-150 hover:bg-rose-100 hover:border-rose-300 active:scale-95 cursor-pointer disabled:opacity-50 select-none shadow-2xs"
+          >
+            <LogOut className="size-3.5" />
+            <span className="text-[11px]">
+              {isLoggingOut ? "กำลังออก..." : "ออกจากระบบ"}
+            </span>
           </button>
         </div>
       </div>
