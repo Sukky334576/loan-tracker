@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRole } from "@/components/AppShell";
 import { LoanCard, LoanCardData } from "@/components/LoanCard";
 import { RepaymentDrawer, PaymentSuccessResult } from "@/components/RepaymentDrawer";
+import { FundModal } from "@/components/FundModal";
 import { deleteLoanAction } from "@/app/actions/loans";
 import { 
   TrendingUp, 
@@ -46,6 +47,9 @@ export function DashboardClient({
   
   // Selected Loan for Repayment Drawer
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<LoanCardData | null>(null);
+
+  // Fund Modal (Set / Add Capital)
+  const [isFundModalOpen, setIsFundModalOpen] = useState(false);
 
   // Loan to Delete (Confirmation Modal)
   const [loanToDelete, setLoanToDelete] = useState<LoanCardData | null>(null);
@@ -230,7 +234,16 @@ export function DashboardClient({
               <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-blue-700">
                 {metrics.cashBalance.toLocaleString()} ฿
               </p>
-              <span className="text-[11px] text-zinc-400">พร้อมเบิกปล่อยกู้</span>
+              <div className="mt-1 flex items-center justify-between">
+                <span className="text-[11px] text-zinc-400">พร้อมเบิกปล่อยกู้</span>
+                <button
+                  type="button"
+                  onClick={() => setIsFundModalOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                >
+                  <span>เติม/ตั้งยอด</span>
+                </button>
+              </div>
             </div>
 
             {/* เกินกำหนด */}
@@ -413,6 +426,13 @@ export function DashboardClient({
           </div>
         )}
       </AnimatePresence>
+      {/* Fund Modal (Set / Add Capital) */}
+      <FundModal
+        isOpen={isFundModalOpen}
+        onClose={() => setIsFundModalOpen(false)}
+        currentBalance={metrics.cashBalance}
+        onSuccess={() => router.refresh()}
+      />
     </div>
   );
 }

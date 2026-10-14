@@ -1,0 +1,133 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+
+export async function addCapitalAction(params: {
+  amount: number;
+  type?: "CAPITAL_INJECTION" | "WITHDRAWAL";
+  description?: string;
+}) {
+  try {
+    const { amount, type = "CAPITAL_INJECTION", description } = params;
+
+    if (!amount || amount <= 0) {
+      return { success: false, error: "กรุณาระบุจำนวนเงินที่ถูกต้อง (มากกว่า 0 บาท)" };
+    }
+
+    const defaultDesc =
+      type === "CAPITAL_INJECTION"
+        ? "เติมเงินทุนเข้ากองกลาง"
+        : "เบิกถอนเงินทุนออกจากกองกลาง";
+
+    await prisma.cashLedger.create({
+      data: {
+        type,
+        amount: Number(amount),
+        description: description?.trim() || defaultDesc,
+      },
+    });
+
+    revalidatePath("/");
+    revalidatePath("/ledger");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Add capital error:", error);
+    return { success: false, error: error.message ?? "บันทึกข้อมูลเงินกองกลางไม่สำเร็จ" };
+  }
+}
+
+export async function setFundBalanceAction(params: {
+  targetAmount: number;
+  description?: string;
+}) {
+  try {
+    const { targetAmount, description } = params;
+
+    if (targetAmount === undefined || targetAmount === null || targetAmount < 0) {
+      return { success: false, error: "กรุณาระบุจำนวนเงินกองกลางที่ถูกต้อง" };
+    }
+
+    // 1. Calculate current balance
+    const ledgerEntries = await prisma.cashLedger.findMany();
+    const currentBalance = ledgerEntries.reduce((sum, entry) => {
+      if (entry.type === "CAPITAL_INJECTION" || entry.type === "REPAYMENT") {
+        return sum + entry.amount;
+      }
+      return sum - entry.amount;
+    }, 0);
+
+    const difference = targetAmount - currentBalance;
+
+    if (Math.abs(difference) < 0.01) {
+      return { success: true, message: "ยอดเงินกองกลางตรงกับที่ระบุอยู่แล้ว" };
+    }
+
+    if (difference > 0) {
+      await prisma.cashLedger.create({
+        data: {
+          type: "CAPITAL_INJECTION",
+          amount: difference,
+          description: description?.trim() || `ปรับปรุงยอดเงินกองกลางตั้งต้นเป็น ${targetAmount.toLocaleString()} ฿`,
+        },
+      });
+    } else {
+      await prisma.cashLedger.create({
+        data: {
+          type: "WITHDRAWAL",
+          amount: Math.abs(difference),
+          description: description?.trim() || `ปรับปรุงลดยอดเงินกองกลางเป็น ${targetAmount.toLocaleString()} ฿`,
+        },
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/ledger");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Set fund balance error:", error);
+    return { success: false, error: error.message ?? "ปรับปรุงยอดเงินกองกลางไม่สำเร็จ" };
+  }
+}
+
+export async function resetDatabaseToProductionAction(params?: {
+  initialCapital?: number;
+}) {
+  try {
+    const initialCapital = params?.initialCapital ? Number(params.initialCapital) : 0;
+
+    await prisma.$transaction(async (tx) => {
+      // Clear all transaction data
+      await tx.payment.deleteMany();
+      await tx.collectionLog.deleteMany();
+      await tx.document.deleteMany();
+      await tx.loan.deleteMany();
+      await tx.borrower.deleteMany();
+      await tx.cashLedger.deleteMany();
+      await tx.auditLog.deleteMany();
+
+      // If initial capital specified, create initial entry
+      if (initialCapital > 0) {
+        await tx.cashLedger.create({
+          data: {
+            type: "CAPITAL_INJECTION",
+            amount: initialCapital,
+            description: `เงินทุนตั้งต้นกองกลาง (เริ่มต้นใช้งานจริง) ${initialCapital.toLocaleString()} ฿`,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/");
+    revalidatePath("/borrowers");
+    revalidatePath("/ledger");
+    revalidatePath("/loans/new");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Reset database error:", error);
+    return { success: false, error: error.message ?? "ล้างข้อมูลระบบไม่สำเร็จ" };
+  }
+}

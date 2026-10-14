@@ -6,15 +6,15 @@ import { DB_BASE64 } from "./db-base64";
 // On Vercel / serverless environment, ensure SQLite db file is populated in /tmp with read-write access
 function ensureVercelDb() {
   if (process.env.VERCEL) {
-    process.env.DATABASE_URL = "file:/tmp/dev.db";
-    const tmpPath = path.join("/tmp", "dev.db");
+    const tmpPath = path.join("/tmp", "prod.db");
+    process.env.DATABASE_URL = "file:/tmp/prod.db";
     try {
       if (!fs.existsSync(tmpPath) || fs.statSync(tmpPath).size < 10000) {
         const buffer = Buffer.from(DB_BASE64, "base64");
         fs.writeFileSync(tmpPath, buffer);
       }
     } catch (e) {
-      console.error("Failed to initialize /tmp/dev.db:", e);
+      console.error("Failed to initialize /tmp/prod.db:", e);
     }
   }
 }
@@ -31,7 +31,7 @@ export const prisma =
     datasources: process.env.VERCEL
       ? {
           db: {
-            url: "file:/tmp/dev.db",
+            url: "file:/tmp/prod.db",
           },
         }
       : undefined,
