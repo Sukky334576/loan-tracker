@@ -1,0 +1,153 @@
+import { prisma } from "@/lib/prisma";
+import { Wallet, ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+
+export default async function LedgerPage() {
+  const transactions = await prisma.cashLedger.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  let totalInjected = 0;
+  let totalDisbursed = 0;
+  let totalRepaid = 0;
+  let totalWithdrawn = 0;
+
+  transactions.forEach((tx) => {
+    if (tx.type === "CAPITAL_INJECTION") totalInjected += tx.amount;
+    if (tx.type === "DISBURSEMENT") totalDisbursed += tx.amount;
+    if (tx.type === "REPAYMENT") totalRepaid += tx.amount;
+    if (tx.type === "WITHDRAWAL") totalWithdrawn += tx.amount;
+  });
+
+  const cashBalance = totalInjected + totalRepaid - totalDisbursed - totalWithdrawn;
+
+  return (
+    <div className="w-full pb-24 md:pb-12">
+      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5">
+        <div className="mb-5">
+          <h2 className="text-xl font-bold tracking-tight text-zinc-900">
+            กระเป๋าเงินกองกลาง & บัญชีเงินสด
+          </h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            ภาพรวมกระแสเงินสดหมุนเวียนและการปล่อยกู้ของนายทุน
+          </p>
+        </div>
+
+        {/* Responsive Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Left Column: Master Balance & Quick Stats */}
+          <div className="flex flex-col gap-3.5 lg:col-span-1">
+            <div className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-zinc-300">
+              <div className="flex items-center justify-between text-zinc-500 text-xs font-semibold">
+                <span>เงินสดกองกลางพร้อมใช้ (Cash Reserve)</span>
+                <Wallet className="size-4 text-emerald-600" />
+              </div>
+
+              <div className="mt-3 flex items-baseline gap-1.5">
+                <span className="font-mono text-3xl font-extrabold tracking-tight tabular-nums text-zinc-900">
+                  {cashBalance.toLocaleString()}
+                </span>
+                <span className="text-sm font-semibold text-zinc-400">บาท</span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2 border-t border-zinc-150 pt-3 text-xs">
+                <div>
+                  <span className="text-zinc-500 text-[11px]">เงินทุนตั้งต้น</span>
+                  <p className="font-mono font-bold tabular-nums text-zinc-800 text-sm mt-0.5">
+                    {totalInjected.toLocaleString()} ฿
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-zinc-500 text-[11px]">ยอดปล่อยกู้สะสม</span>
+                  <p className="font-mono font-bold tabular-nums text-rose-700 text-sm mt-0.5">
+                    -{totalDisbursed.toLocaleString()} ฿
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 text-xs shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm hover:border-zinc-300">
+              <div className="flex items-center gap-2 text-zinc-700 font-semibold mb-2">
+                <TrendingUp className="size-4 text-emerald-600" />
+                <span>บัญชีหลักสำหรับรับเงินโอน</span>
+              </div>
+              <div className="rounded-xl bg-zinc-50 p-3 border border-zinc-200/60 font-mono text-xs">
+                <p className="font-bold text-zinc-900">ธนาคารกรุงเทพ (BBL)</p>
+                <p className="text-blue-700 font-bold text-sm mt-0.5">546-7-396726</p>
+                <p className="text-zinc-600 font-sans text-[11px] mt-0.5">น.ส.ฟิลิปดา ฤือปัญญา</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Transactions List */}
+          <div className="lg:col-span-2">
+            <div className="rounded-2xl border border-zinc-200/90 bg-white p-4.5 shadow-xs">
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">
+                ประวัติการเคลื่อนไหวล่าสุด ({transactions.length} รายการ)
+              </h3>
+
+              <div className="flex flex-col gap-2">
+                {transactions.map((tx) => {
+                  const isInflow =
+                    tx.type === "CAPITAL_INJECTION" || tx.type === "REPAYMENT";
+                  const dateStr = new Date(tx.createdAt).toLocaleDateString("th-TH", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between rounded-xl border border-zinc-150 bg-zinc-50/70 p-3 transition-all duration-150 hover:bg-white hover:border-zinc-300 hover:shadow-2xs hover:-translate-y-0.5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                            isInflow
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-rose-50 text-rose-700 border border-rose-200"
+                          }`}
+                        >
+                          {isInflow ? (
+                            <ArrowDownRight className="size-4" />
+                          ) : (
+                            <ArrowUpRight className="size-4" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-zinc-800 truncate max-w-[200px] sm:max-w-md">
+                            {tx.description}
+                          </p>
+                          <span className="text-[10px] text-zinc-400">{dateStr}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p
+                          className={`font-mono text-xs font-bold tabular-nums ${
+                            isInflow ? "text-emerald-700" : "text-rose-700"
+                          }`}
+                        >
+                          {isInflow ? "+" : "-"}
+                          {tx.amount.toLocaleString()} ฿
+                        </p>
+                        <span className="text-[9px] font-semibold text-zinc-400 uppercase">
+                          {tx.type}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

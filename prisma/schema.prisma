@@ -1,0 +1,192 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  AGENT
+}
+
+enum CreditGrade {
+  NEW
+  GOOD
+  BLACKLIST
+}
+
+enum LoanTerm {
+  DAYS_7
+  DAYS_10
+}
+
+enum LoanStatus {
+  ACTIVE
+  PARTIALLY_PAID  // จ่ายดอกไม่ครบ ค้างบางส่วน
+  OVERDUE
+  SETTLED
+  BAD_DEBT
+}
+
+enum PaymentType {
+  INTEREST_ONLY   // ตัดดอก
+  PRINCIPAL_CUT   // ตัดดอก + โปะต้น
+  SETTLEMENT      // ปิดยอดทั้งหมด
+  PENALTY_ONLY    // จ่ายค่าปรับ
+  UNDERPAID       // จ่ายไม่เต็มยอดดอก
+}
+
+enum PaymentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum CashFlowType {
+  CAPITAL_INJECTION // เติมทุนเข้ากองกลาง
+  DISBURSEMENT      // ปล่อยกู้
+  REPAYMENT         // รับชำระคืน
+  WITHDRAWAL        // ถอนกำไร/ทุน
+}
+
+model User {
+  id             String          @id @default(cuid())
+  username       String          @unique
+  passwordHash   String
+  name           String
+  role           Role            @default(AGENT)
+  borrowers      Borrower[]
+  loans          Loan[]
+  auditLogs      AuditLog[]
+  collectionLogs CollectionLog[]
+  createdAt      DateTime        @default(now())
+}
+
+model Borrower {
+  id              String      @id @default(cuid())
+  citizenId       String      @unique
+  fullName        String
+  phone           String
+  workplace       String?
+  facebookUrl     String?     // ลิงก์ Social Media สำหรับตามตัว
+  backupPhone     String?     // เบอร์โทรสำรอง/ญาติ
+  addressOnCard   String?
+  storeOrHomePhoto String?    // รูปถ่ายหน้าร้าน/หน้าบ้าน
+  creditGrade     CreditGrade @default(NEW)
+  creditLimit     Float       @default(2000.0) // SQLite Float สำหรับตัวเลขเงิน
+  completedCycles Int         @default(0)
+  guarantorName   String?
+  guarantorPhone  String?
+  agentId         String
+  agent           User        @relation(fields: [agentId], references: [id])
+  loans           Loan[]
+  documents       Document[]
+  deletedAt       DateTime?   // Soft Delete
+  createdAt       DateTime    @default(now())
+}
+
+model Loan {
+  id                 String          @id @default(cuid())
+  borrowerId         String
+  borrower           Borrower        @relation(fields: [borrowerId], references: [id])
+  agentId            String
+  agent              User            @relation(fields: [agentId], references: [id])
+  initialPrincipal   Float
+  remainingPrincipal Float
+  termType           LoanTerm
+  interestRate       Float           // 0.15 สำหรับ 7 วัน, 0.20 สำหรับ 10 วัน
+  processingFee      Float           @default(0.0)
+  rolloverCount      Int             @default(0) // ตัดดอกได้ไม่เกิน 3 รอบ รอบที่ 4 บังคับปิด
+  accruedInterest    Float           @default(0.0) // ยอดดอกเบี้ยค้างยกยอด (Underpaid)
+  penaltyAccrued     Float           @default(0.0) // ค่าปรับค้างจ่ายสะสม
+  status             LoanStatus      @default(ACTIVE)
+  startDate          DateTime
+  currentDueDate     DateTime
+  closedAt           DateTime?
+
+  // Contract & Guarantee Details
+  contractType            String          @default("STANDARD") // "STANDARD" (กู้ปกติ) | "GUARANTEED" (กู้ให้คนอื่นแล้วรับรอง)
+  contractPlace           String          @default("บ้านเป้า") // ทำที่ เช่น บ้านเป้า เกษตรสมบูรณ์
+  dailyPenaltyRate        Float           @default(50.0) // ปรับวันละ ... บาท (ข้อ ๒.๒)
+  isUpfrontDeduction      Boolean         @default(false) // หักดอกล่วงหน้า
+  upfrontDeductionAmount  Float           @default(0.0) // จำนวนเงินหักดอกล่วงหน้า เช่น 200
+  disbursedAmount         Float           @default(0.0) // ยอดเงินที่โอนจริงให้ผู้กู้ เช่น 800
+
+  // Guarantor Info (กรณีแบบกู้ให้คนอื่นแล้วรับรอง)
+  guarantorName           String?         // ชื่อคนรับรอง
+  guarantorCitizenId      String?         // เลขบัตรคนรับรอง
+  guarantorPhone          String?         // เบอร์โทรคนรับรอง
+  guarantorAddress        String?         // ที่อยู่คนรับรอง
+
+  // Digital Signatures
+  borrowerSignature       String?         // Base64 PNG ของลายเซ็นผู้กู้
+  guarantorSignature      String?         // Base64 PNG ของลายเซ็นผู้รับรอง
+  signedAt                DateTime?       // วันเวลาที่เซ็นสัญญา
+
+  payments           Payment[]
+  collectionLogs     CollectionLog[]
+  deletedAt          DateTime?       // Soft Delete
+  createdAt          DateTime        @default(now())
+}
+
+model Payment {
+  id                  String                    @id @default(cuid())
+  loanId              String
+  loan                Loan                      @relation(fields: [loanId], references: [id])
+  paymentType         PaymentType
+  amountPaid          Float
+  // Waterfall Breakdown
+  penaltyPaid         Float                     @default(0.0)
+  accruedInterestPaid Float                     @default(0.0)
+  currentInterestPaid Float                     @default(0.0)
+  principalCut        Float                     @default(0.0)
+  underpaidCarryover  Float                     @default(0.0)
+  
+  slipUrl             String
+  verificationStatus  PaymentVerificationStatus @default(PENDING)
+  ocrRawText          String?
+  paidAt              DateTime                  @default(now())
+  verifiedBy          String?
+  notes               String?
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  borrowerId String
+  borrower   Borrower @relation(fields: [borrowerId], references: [id])
+  fileUrl    String
+  docType    String   // ID_CARD, ID_CARD_FACE, CONTRACT, STORE_FRONT, OTHER
+  uploadedAt DateTime @default(now())
+}
+
+model CashLedger {
+  id          String       @id @default(cuid())
+  type        CashFlowType
+  amount      Float
+  description String
+  referenceId String?      // ผูกกับ LoanId หรือ PaymentId
+  createdAt   DateTime     @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // เช่น EXTEND_DUE_DATE, GRADE_CHANGE, APPROVE_PAYMENT
+  targetId  String
+  details   String   // JSON string แสดงการเปลี่ยนแปลง
+  createdAt DateTime @default(now())
+}
+
+model CollectionLog {
+  id          String   @id @default(cuid())
+  loanId      String
+  loan        Loan     @relation(fields: [loanId], references: [id])
+  agentId     String
+  agent       User     @relation(fields: [agentId], references: [id])
+  note        String   // บันทึกความคืบหน้าการทวงหนี้
+  contactedAt DateTime @default(now())
+}
