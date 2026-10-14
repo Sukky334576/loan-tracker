@@ -1,19 +1,25 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
+import { DB_BASE64 } from "./db-base64";
 
-// On Vercel serverless environment, ensure SQLite db file is copied to /tmp with read-write access
-if (process.env.VERCEL) {
-  const tmpPath = path.join("/tmp", "dev.db");
-  const localDb = path.join(process.cwd(), "prisma", "dev.db");
-  if (!fs.existsSync(tmpPath) && fs.existsSync(localDb)) {
+// On Vercel / serverless environment, ensure SQLite db file is populated in /tmp with read-write access
+function ensureVercelDb() {
+  if (process.env.VERCEL) {
+    process.env.DATABASE_URL = "file:/tmp/dev.db";
+    const tmpPath = path.join("/tmp", "dev.db");
     try {
-      fs.copyFileSync(localDb, tmpPath);
+      if (!fs.existsSync(tmpPath) || fs.statSync(tmpPath).size < 10000) {
+        const buffer = Buffer.from(DB_BASE64, "base64");
+        fs.writeFileSync(tmpPath, buffer);
+      }
     } catch (e) {
-      console.error("Failed to copy dev.db to /tmp:", e);
+      console.error("Failed to initialize /tmp/dev.db:", e);
     }
   }
 }
+
+ensureVercelDb();
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
