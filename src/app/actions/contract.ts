@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export async function saveSignatureAction(params: {
   loanId: string;
@@ -52,9 +52,9 @@ export async function saveSignatureAction(params: {
       data: updateData,
     });
 
-    revalidatePath(`/loans/${loanId}/contract`);
-    revalidatePath(`/sign/${loanId}`);
-    revalidatePath("/");
+    safeRevalidate(`/loans/${loanId}/contract`);
+    safeRevalidate(`/sign/${loanId}`);
+    safeRevalidate("/");
 
     return { success: true };
   } catch (error: any) {
@@ -89,9 +89,9 @@ export async function clearSignatureAction(params: {
       data: updateData,
     });
 
-    revalidatePath(`/loans/${loanId}/contract`);
-    revalidatePath(`/sign/${loanId}`);
-    revalidatePath("/");
+    safeRevalidate(`/loans/${loanId}/contract`);
+    safeRevalidate(`/sign/${loanId}`);
+    safeRevalidate("/");
 
     return { success: true };
   } catch (error: any) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export interface CreateBorrowerInput {
   citizenId: string;
@@ -72,8 +72,8 @@ export async function createBorrowerAction(input: CreateBorrowerInput) {
       },
     });
 
-    revalidatePath("/borrowers");
-    revalidatePath("/loans/new");
+    safeRevalidate("/borrowers");
+    safeRevalidate("/loans/new");
 
     return { success: true, borrowerId: borrower.id };
   } catch (error: any) {
@@ -117,9 +117,9 @@ export async function deleteBorrowerAction(borrowerId: string) {
       });
     });
 
-    revalidatePath("/borrowers");
-    revalidatePath("/");
-    revalidatePath("/loans/new");
+    safeRevalidate("/borrowers");
+    safeRevalidate("/");
+    safeRevalidate("/loans/new");
 
     return { success: true };
   } catch (error: any) {

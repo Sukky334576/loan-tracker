@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export interface SessionUser {
   id: string;
@@ -100,9 +100,9 @@ export async function loginAction(params: {
       maxAge: 60 * 60 * 24 * 30, // 30 days
     });
 
-    revalidatePath("/");
-    revalidatePath("/borrowers");
-    revalidatePath("/ledger");
+    safeRevalidate("/");
+    safeRevalidate("/borrowers");
+    safeRevalidate("/ledger");
 
     return {
       success: true,
@@ -122,8 +122,8 @@ export async function logoutAction() {
     const cookieStore = await cookies();
     cookieStore.delete(SESSION_COOKIE_NAME);
 
-    revalidatePath("/");
-    revalidatePath("/login");
+    safeRevalidate("/");
+    safeRevalidate("/login");
 
     return { success: true };
   } catch (error) {

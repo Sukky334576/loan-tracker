@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export async function addCapitalAction(params: {
   amount: number;
@@ -28,8 +28,8 @@ export async function addCapitalAction(params: {
       },
     });
 
-    revalidatePath("/");
-    revalidatePath("/ledger");
+    safeRevalidate("/");
+    safeRevalidate("/ledger");
 
     return { success: true };
   } catch (error: any) {
@@ -82,8 +82,8 @@ export async function setFundBalanceAction(params: {
       });
     }
 
-    revalidatePath("/");
-    revalidatePath("/ledger");
+    safeRevalidate("/");
+    safeRevalidate("/ledger");
 
     return { success: true };
   } catch (error: any) {
@@ -120,10 +120,10 @@ export async function resetDatabaseToProductionAction(params?: {
       }
     });
 
-    revalidatePath("/");
-    revalidatePath("/borrowers");
-    revalidatePath("/ledger");
-    revalidatePath("/loans/new");
+    safeRevalidate("/");
+    safeRevalidate("/borrowers");
+    safeRevalidate("/ledger");
+    safeRevalidate("/loans/new");
 
     return { success: true };
   } catch (error: any) {

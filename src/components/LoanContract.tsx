@@ -148,15 +148,13 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
       <div className="mx-auto max-w-4xl px-4 mb-4 sm:mb-6 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-sm">
           <div className="flex items-center gap-2">
-            {!isClientSignMode ? (
-              <Link
-                href="/"
-                className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-all active:scale-95"
-              >
-                <ArrowLeft className="size-4" />
-                <span>กลับ</span>
-              </Link>
-            ) : null}
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-all active:scale-95"
+            >
+              <ArrowLeft className="size-4" />
+              <span>กลับหน้าหลัก</span>
+            </Link>
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-zinc-900">
@@ -391,7 +389,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
                 <span>ลงชื่อ</span>
                 
                 {borrowerSig ? (
-                  <div className="relative group/sig h-14 w-44 flex items-center justify-center border-b border-dotted border-zinc-700">
+                  <div className="relative h-14 w-44 flex items-center justify-center border-b border-dotted border-zinc-700">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={borrowerSig}
@@ -401,7 +399,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
                     <button
                       type="button"
                       onClick={() => handleClearSignature("borrower")}
-                      className="print:hidden absolute -top-2 -right-2 hidden group-hover/sig:flex size-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs hover:bg-rose-600 transition-colors"
+                      className="print:hidden absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs hover:bg-rose-600 transition-colors cursor-pointer text-xs font-bold"
                       title="ลบลายเซ็นเพื่อเซ็นใหม่"
                     >
                       ×
@@ -441,7 +439,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
                 <span>ลงชื่อ</span>
 
                 {guarantorSig ? (
-                  <div className="relative group/gsig h-14 w-48 flex items-center justify-center border-b border-dotted border-zinc-700">
+                  <div className="relative h-14 w-48 flex items-center justify-center border-b border-dotted border-zinc-700">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={guarantorSig}
@@ -451,7 +449,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
                     <button
                       type="button"
                       onClick={() => handleClearSignature("guarantor")}
-                      className="print:hidden absolute -top-2 -right-2 hidden group-hover/gsig:flex size-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs hover:bg-rose-600 transition-colors"
+                      className="print:hidden absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs hover:bg-rose-600 transition-colors cursor-pointer text-xs font-bold"
                       title="ลบลายเซ็นเพื่อเซ็นใหม่"
                     >
                       ×

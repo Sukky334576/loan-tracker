@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { 
   Phone, 
   MessageCircle, 
@@ -9,7 +10,8 @@ import {
   Clock, 
   Check,
   CheckCircle2,
-  Trash2
+  Trash2,
+  FileText
 } from "lucide-react";
 
 export interface LoanCardData {
@@ -90,9 +92,14 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold tracking-tight text-zinc-900 truncate group-hover:text-zinc-950 transition-colors">
-              {loan.borrowerName}
-            </h2>
+            <Link
+              href={`/loans/${loan.id}/contract`}
+              className="text-base font-bold tracking-tight text-zinc-900 truncate hover:text-blue-600 transition-colors cursor-pointer flex items-center gap-1 group/name"
+              title="ดู/พิมพ์สัญญาฉบับเต็ม"
+            >
+              <span>{loan.borrowerName}</span>
+              <FileText className="size-3 text-zinc-400 group-hover/name:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </Link>
             <span
               className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-transform duration-150 group-hover:scale-105 ${
                 loan.creditGrade === "GOOD"
@@ -111,7 +118,7 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Status Badge */}
           {isSettled ? (
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 shadow-2xs">
@@ -134,6 +141,15 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
               อีก {loan.daysDiff} วัน
             </span>
           )}
+
+          {/* View Contract Button */}
+          <Link
+            href={`/loans/${loan.id}/contract`}
+            title="ดูสัญญาเงินกู้ / พิมพ์สัญญา"
+            className="size-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-blue-600 hover:bg-blue-50 transition-colors select-none cursor-pointer"
+          >
+            <FileText className="size-3.5" />
+          </Link>
 
           {/* Delete Button */}
           {onDeleteClick && (

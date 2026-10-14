@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -153,9 +153,9 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
       });
     });
 
-    revalidatePath("/");
-    revalidatePath("/ledger");
-    revalidatePath("/borrowers");
+    safeRevalidate("/");
+    safeRevalidate("/ledger");
+    safeRevalidate("/borrowers");
 
     return { success: true };
   } catch (error: any) {

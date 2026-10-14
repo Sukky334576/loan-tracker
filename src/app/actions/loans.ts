@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export interface CreateLoanInput {
   borrowerId: string;
@@ -167,8 +167,8 @@ export async function createLoanAction(input: CreateLoanInput) {
       return loan;
     });
 
-    revalidatePath("/");
-    revalidatePath("/borrowers");
+    safeRevalidate("/");
+    safeRevalidate("/borrowers");
     return { success: true, loanId: result.id };
   } catch (error: any) {
     console.error("Create loan error:", error);
@@ -212,9 +212,9 @@ export async function deleteLoanAction(loanId: string) {
       },
     });
 
-    revalidatePath("/");
-    revalidatePath("/borrowers");
-    revalidatePath("/ledger");
+    safeRevalidate("/");
+    safeRevalidate("/borrowers");
+    safeRevalidate("/ledger");
 
     return { success: true };
   } catch (error: any) {
