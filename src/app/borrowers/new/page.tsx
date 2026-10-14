@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createBorrowerAction } from "@/app/actions/borrowers";
 import { 
@@ -17,8 +17,10 @@ import {
   AlertCircle
 } from "lucide-react";
 
-export default function NewBorrowerPage() {
+function BorrowerFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromUrl = searchParams.get("from") || "/borrowers";
 
   const [formData, setFormData] = useState({
     citizenId: "",
@@ -56,7 +58,7 @@ export default function NewBorrowerPage() {
     setIsSubmitting(false);
 
     if (res.success) {
-      router.push("/borrowers");
+      router.push(fromUrl);
       router.refresh();
     } else {
       setErrorMsg(res.error ?? "เกิดข้อผิดพลาด");
@@ -69,7 +71,7 @@ export default function NewBorrowerPage() {
         {/* Header with Back Button */}
         <div className="flex items-center gap-3 mb-5">
           <Link
-            href="/borrowers"
+            href={fromUrl}
             className="flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 transition-all active:scale-95"
           >
             <ArrowLeft className="size-4" />
@@ -309,3 +311,18 @@ export default function NewBorrowerPage() {
     </div>
   );
 }
+
+export default function NewBorrowerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center text-zinc-400">
+          <Loader2 className="size-6 animate-spin" />
+        </div>
+      }
+    >
+      <BorrowerFormContent />
+    </Suspense>
+  );
+}
+

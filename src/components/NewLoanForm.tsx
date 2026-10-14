@@ -6,15 +6,17 @@ import { createLoanAction } from "@/app/actions/loans";
 import { 
   Calculator, 
   CheckCircle2, 
-  AlertCircle,
-  Loader2,
-  FileText,
-  UserCheck,
-  User,
-  Shield,
-  Coins
+  AlertCircle, 
+  Loader2, 
+  FileText, 
+  UserCheck, 
+  User, 
+  Shield, 
+  Coins,
+  UserPlus
 } from "lucide-react";
-
+import Link from "next/link";
+import { QuickAddBorrowerModal, CreatedBorrower } from "@/components/QuickAddBorrowerModal";
 import { formatThaiDate } from "@/lib/date";
 
 interface BorrowerOption {
@@ -30,9 +32,11 @@ interface BorrowerOption {
 export function NewLoanForm({ borrowers }: { borrowers: BorrowerOption[] }) {
   const router = useRouter();
 
+  const [borrowerList, setBorrowerList] = useState<BorrowerOption[]>(borrowers);
   const [selectedBorrowerId, setSelectedBorrowerId] = useState(
     borrowers[0]?.id ?? ""
   );
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [principal, setPrincipal] = useState<number>(1000);
   const [termType, setTermType] = useState<"DAYS_7" | "DAYS_10">("DAYS_10");
   const [processingFee, setProcessingFee] = useState<number>(0);
@@ -51,7 +55,12 @@ export function NewLoanForm({ borrowers }: { borrowers: BorrowerOption[] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const selectedBorrower = borrowers.find((b) => b.id === selectedBorrowerId);
+  const selectedBorrower = borrowerList.find((b) => b.id === selectedBorrowerId);
+
+  const handleQuickAddSuccess = (newBorrower: CreatedBorrower) => {
+    setBorrowerList((prev) => [newBorrower, ...prev]);
+    setSelectedBorrowerId(newBorrower.id);
+  };
 
   // Calculations
   const rate = termType === "DAYS_7" ? 0.15 : 0.20;
@@ -217,20 +226,60 @@ export function NewLoanForm({ borrowers }: { borrowers: BorrowerOption[] }) {
 
       {/* 2. เลือกลูกหนี้ */}
       <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-xs">
-        <label className="block text-xs font-bold text-zinc-800 mb-1.5">
-          เลือกลูกหนี้
-        </label>
-        <select
-          value={selectedBorrowerId}
-          onChange={(e) => setSelectedBorrowerId(e.target.value)}
-          className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 transition-all"
-        >
-          {borrowers.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.fullName} ({b.phone}) — วงเงินเหลือ {b.availableCredit.toLocaleString()} ฿ [{b.creditGrade}]
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-bold text-zinc-800">
+            เลือกลูกหนี้
+          </label>
+          <button
+            type="button"
+            onClick={() => setIsQuickAddOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer select-none active:scale-95"
+          >
+            <UserPlus className="size-3.5" />
+            <span>+ เพิ่มลูกหนี้ใหม่</span>
+          </button>
+        </div>
+
+        {borrowerList.length > 0 ? (
+          <select
+            value={selectedBorrowerId}
+            onChange={(e) => setSelectedBorrowerId(e.target.value)}
+            className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 transition-all"
+          >
+            <option value="" disabled>-- กรุณาเลือกลูกหนี้ --</option>
+            {borrowerList.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.fullName} ({b.phone}) — วงเงินเหลือ {b.availableCredit.toLocaleString()} ฿ [{b.creditGrade}]
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-center">
+            <div className="size-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 mx-auto mb-2">
+              <UserPlus className="size-5" />
+            </div>
+            <p className="text-xs font-bold text-amber-900">ยังไม่มีรายชื่อลูกหนี้ในระบบ</p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              คุณต้องลงทะเบียนข้อมูลลูกหนี้ก่อน จึงจะสามารถเปิดสัญญาเงินกู้ได้
+            </p>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsQuickAddOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-zinc-800 transition-all cursor-pointer active:scale-95"
+              >
+                <UserPlus className="size-3.5" />
+                <span>+ เพิ่มลูกหนี้ใหม่ตอนนี้</span>
+              </button>
+              <Link
+                href="/borrowers/new"
+                className="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 transition-all"
+              >
+                <span>กรอกแบบละเอียด</span>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {selectedBorrower && (
           <div className="mt-2.5 flex items-center justify-between border-t border-zinc-150 pt-2 text-[11px] text-zinc-500">
@@ -462,6 +511,12 @@ export function NewLoanForm({ borrowers }: { borrowers: BorrowerOption[] }) {
           </>
         )}
       </button>
+      {/* Quick Add Borrower Modal */}
+      <QuickAddBorrowerModal
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
+        onSuccess={handleQuickAddSuccess}
+      />
     </form>
   );
 }
