@@ -6,20 +6,28 @@ import {
   X, 
   CheckCircle2, 
   Camera, 
-  Upload, 
   AlertCircle, 
-  Banknote, 
-  Receipt, 
-  ArrowRight,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { LoanCardData } from "@/components/LoanCard";
+import { recordPaymentAction } from "@/app/actions/payments";
+
+export interface PaymentSuccessResult {
+  loanId: string;
+  payType: "INTEREST" | "PRINCIPAL_CUT" | "SETTLE";
+  amountPaid: number;
+  isSettlement: boolean;
+  remainingPrincipal: number;
+}
 
 interface RepaymentDrawerProps {
   loan: LoanCardData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (result: PaymentSuccessResult) => void;
+  onDeleteRequest?: (loan: LoanCardData) => void;
 }
 
 export function RepaymentDrawer({
@@ -27,6 +35,7 @@ export function RepaymentDrawer({
   isOpen,
   onClose,
   onSuccess,
+  onDeleteRequest,
 }: RepaymentDrawerProps) {
   const [payType, setPayType] = useState<"INTEREST" | "PRINCIPAL_CUT" | "SETTLE">("INTEREST");
   const [customAmount, setCustomAmount] = useState<string>("");
@@ -34,6 +43,7 @@ export function RepaymentDrawer({
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!loan) return null;
 
@@ -60,15 +70,47 @@ export function RepaymentDrawer({
 
   const handleConfirmPayment = async () => {
     setIsSubmitting(true);
-    // Simulate payment processing with smooth feedback
-    await new Promise((r) => setTimeout(r, 600));
+    setErrorMessage(null);
+
+    const isSettlement = payType === "SETTLE";
+    const res = await recordPaymentAction({
+      loanId: loan.id,
+      payType,
+      amountPaid: currentAmount,
+      notes: isSettlement
+        ? "ปิดยอดสัญญาเรียบร้อย"
+        : payType === "PRINCIPAL_CUT"
+        ? `ชำระดอกเบี้ยและตัดเงินต้น ${currentAmount.toLocaleString()} บาท`
+        : `ตัดดอกเบี้ยรอบที่ ${loan.rolloverCount + 1}`,
+    });
+
     setIsSubmitting(false);
-    setSubmittedSuccess(true);
-    setTimeout(() => {
-      setSubmittedSuccess(false);
-      onClose();
-      onSuccess?.();
-    }, 1200);
+
+    if (res.success) {
+      setSubmittedSuccess(true);
+      setTimeout(() => {
+        setSubmittedSuccess(false);
+        onClose();
+        
+        let newPrincipal = loan.remainingPrincipal;
+        if (isSettlement) {
+          newPrincipal = 0;
+        } else if (payType === "PRINCIPAL_CUT") {
+          const principalCut = Math.max(0, currentAmount - minInterestDue);
+          newPrincipal = Math.max(0, loan.remainingPrincipal - principalCut);
+        }
+
+        onSuccess?.({
+          loanId: loan.id,
+          payType,
+          amountPaid: currentAmount,
+          isSettlement,
+          remainingPrincipal: newPrincipal,
+        });
+      }, 1000);
+    } else {
+      setErrorMessage(res.error ?? "เกิดข้อผิดพลาดในการบันทึกยอด");
+    }
   };
 
   return (
@@ -129,11 +171,24 @@ export function RepaymentDrawer({
                 <div className="size-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3 shadow-inner">
                   <CheckCircle2 className="size-8" />
                 </div>
-                <h4 className="text-base font-bold text-zinc-900">บันทึกรับเงินเรียบร้อย!</h4>
-                <p className="text-xs text-zinc-500 mt-1">ยอดเงินถูกนำไปหักตามลำดับ Waterfall แล้ว</p>
+                <h4 className="text-base font-bold text-zinc-900">
+                  {payType === "SETTLE" ? "ปิดยอดสัญญาเรียบร้อยแล้ว!" : "บันทึกรับเงินเรียบร้อย!"}
+                </h4>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {payType === "SETTLE" 
+                    ? "สถานะสัญญาเปลี่ยนเป็นจบหนี้เรียบร้อย"
+                    : "ยอดเงินถูกนำไปหักตามลำดับ Waterfall แล้ว"}
+                </p>
               </motion.div>
             ) : (
               <div className="mt-4 flex flex-col gap-4">
+                {errorMessage && (
+                  <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
+                    <AlertCircle className="size-4 shrink-0 text-rose-600" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
                 {/* Mode Selector Tabs with Motion Pill */}
                 <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100/90 p-1">
                   {(
@@ -148,7 +203,10 @@ export function RepaymentDrawer({
                       <button
                         key={tab.id}
                         type="button"
-                        onClick={() => setPayType(tab.id)}
+                        onClick={() => {
+                          setPayType(tab.id);
+                          setErrorMessage(null);
+                        }}
                         className={`relative rounded-lg py-2 text-xs font-bold transition-colors select-none ${
                           isSelected ? "text-zinc-950" : "text-zinc-500 hover:text-zinc-800"
                         }`}
@@ -171,7 +229,7 @@ export function RepaymentDrawer({
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-zinc-500 font-medium">ลำดับการหักเงิน (Waterfall)</span>
                     <span className="text-[11px] font-semibold text-zinc-700">
-                      รอบ {loan.termType === "DAYS_7" ? "7 วัน" : "10 วัน"} (รอบที่ {loan.rolloverCount}/3)
+                      รอบ {loan.termType === "DAYS_7" ? "7 วัน (15%)" : "10 วัน (20%)"} (รอบที่ {loan.rolloverCount}/3)
                     </span>
                   </div>
 
@@ -202,7 +260,9 @@ export function RepaymentDrawer({
 
                     <div className="mt-1 flex items-baseline justify-between border-t border-zinc-200 pt-2 text-sm font-bold text-zinc-900">
                       <span>ยอดที่ต้องชำระ:</span>
-                      <span className="font-mono text-xl tabular-nums text-emerald-700 font-extrabold">
+                      <span className={`font-mono text-xl tabular-nums font-extrabold ${
+                        payType === "SETTLE" ? "text-emerald-700" : "text-amber-800"
+                      }`}>
                         {currentAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
                       </span>
                     </div>
@@ -251,7 +311,7 @@ export function RepaymentDrawer({
                           </p>
                           <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
                             <Sparkles className="size-3" />
-                            พร้อมประมวลผล OCR
+                            แนบสลิปเรียบร้อย
                           </span>
                         </div>
                         <span className="text-xs text-zinc-500 underline">เปลี่ยน</span>
@@ -277,24 +337,48 @@ export function RepaymentDrawer({
                   whileTap={{ scale: 0.98 }}
                   disabled={isSubmitting}
                   onClick={handleConfirmPayment}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-bold text-white shadow-md transition-all hover:bg-zinc-800 disabled:opacity-50 select-none"
+                  className={`flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold text-white shadow-md transition-all select-none cursor-pointer ${
+                    payType === "SETTLE" 
+                      ? "bg-emerald-600 hover:bg-emerald-700" 
+                      : "bg-zinc-900 hover:bg-zinc-800"
+                  } disabled:opacity-50`}
                 >
                   {isSubmitting ? (
-                    <span>กำลังบันทึกยอด...</span>
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>กำลังบันทึกยอด...</span>
+                    </>
                   ) : (
                     <>
                       <CheckCircle2 className="size-4" />
                       <span>
-                        ยืนยันรับยอด{" "}
+                        {payType === "SETTLE" ? "ยืนยันปิดยอดสัญญา (" : "ยืนยันรับยอด "}
                         {currentAmount.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}{" "}
-                        บาท
+                        บาท{payType === "SETTLE" ? ")" : ""}
                       </span>
                     </>
                   )}
                 </motion.button>
+
+                {/* Delete / Cancel Option */}
+                {onDeleteRequest && (
+                  <div className="flex items-center justify-center border-t border-zinc-150 pt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onDeleteRequest(loan);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-rose-600 transition-colors py-1 px-2 rounded-lg hover:bg-rose-50 cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" />
+                      <span>ต้องการลบ/ยกเลิกสัญญานี้ทิ้ง?</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

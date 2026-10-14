@@ -81,3 +81,50 @@ export async function createBorrowerAction(input: CreateBorrowerInput) {
     return { success: false, error: error.message ?? "บันทึกข้อมูลลูกหนี้ล้มเหลว" };
   }
 }
+
+export async function deleteBorrowerAction(borrowerId: string) {
+  try {
+    if (!borrowerId) {
+      return { success: false, error: "ไม่พบรหัสลูกหนี้" };
+    }
+
+    const borrower = await prisma.borrower.findUnique({
+      where: { id: borrowerId },
+      include: {
+        loans: {
+          where: {
+            status: { in: ["ACTIVE", "OVERDUE", "PARTIALLY_PAID"] },
+            deletedAt: null,
+          },
+        },
+      },
+    });
+
+    if (!borrower) {
+      return { success: false, error: "ไม่พบข้อมูลลูกหนี้นี้" };
+    }
+
+    // Soft delete borrower and cascade soft-delete their loans
+    await prisma.$transaction(async (tx) => {
+      await tx.loan.updateMany({
+        where: { borrowerId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+
+      await tx.borrower.update({
+        where: { id: borrowerId },
+        data: { deletedAt: new Date() },
+      });
+    });
+
+    revalidatePath("/borrowers");
+    revalidatePath("/");
+    revalidatePath("/loans/new");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Delete borrower error:", error);
+    return { success: false, error: error.message ?? "ลบข้อมูลลูกหนี้ล้มเหลว" };
+  }
+}
+

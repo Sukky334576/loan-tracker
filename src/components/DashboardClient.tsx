@@ -1,17 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useRole } from "@/components/AppShell";
 import { LoanCard, LoanCardData } from "@/components/LoanCard";
-import { RepaymentDrawer } from "@/components/RepaymentDrawer";
+import { RepaymentDrawer, PaymentSuccessResult } from "@/components/RepaymentDrawer";
+import { deleteLoanAction } from "@/app/actions/loans";
 import { 
   TrendingUp, 
   AlertTriangle, 
   Clock, 
   Wallet, 
   Layers, 
-  Search
+  Search,
+  CheckCircle2,
+  Trash2,
+  Loader2,
+  X
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface DashboardClientProps {
   initialLoans: LoanCardData[];
@@ -21,6 +28,7 @@ interface DashboardClientProps {
     dueTodayCount: number;
     cashBalance: number;
     activeLoansCount: number;
+    settledCount?: number;
   };
 }
 
@@ -28,14 +36,34 @@ export function DashboardClient({
   initialLoans,
   initialMetrics,
 }: DashboardClientProps) {
+  const router = useRouter();
   const { role } = useRole();
-  const [filter, setFilter] = useState<"ALL" | "TODAY" | "OVERDUE">("ALL");
+
+  const [loans, setLoans] = useState<LoanCardData[]>(initialLoans);
+  const [metrics, setMetrics] = useState(initialMetrics);
+  const [filter, setFilter] = useState<"ALL" | "TODAY" | "OVERDUE" | "SETTLED">("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   
   // Selected Loan for Repayment Drawer
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<LoanCardData | null>(null);
 
-  const filteredLoans = initialLoans.filter((loan) => {
+  // Loan to Delete (Confirmation Modal)
+  const [loanToDelete, setLoanToDelete] = useState<LoanCardData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Sync state if server props change
+  useEffect(() => {
+    setLoans(initialLoans);
+    setMetrics(initialMetrics);
+  }, [initialLoans, initialMetrics]);
+
+  // Active vs Settled Loans
+  const activeLoans = loans.filter((l) => l.status !== "SETTLED" && l.status !== "BAD_DEBT");
+  const settledLoans = loans.filter((l) => l.status === "SETTLED");
+  const dueTodayLoans = activeLoans.filter((l) => l.daysDiff === 0);
+  const overdueLoans = activeLoans.filter((l) => l.status === "OVERDUE" || l.daysDiff < 0);
+
+  const filteredLoans = loans.filter((loan) => {
     const matchesSearch =
       loan.borrowerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       loan.phone.includes(searchTerm) ||
@@ -43,24 +71,138 @@ export function DashboardClient({
 
     if (!matchesSearch) return false;
 
+    if (filter === "ALL") {
+      // On "ALL", show active loans first
+      return loan.status !== "SETTLED";
+    }
     if (filter === "TODAY") {
-      return loan.daysDiff === 0;
+      return loan.status !== "SETTLED" && loan.daysDiff === 0;
     }
     if (filter === "OVERDUE") {
-      return loan.status === "OVERDUE" || loan.daysDiff < 0;
+      return loan.status !== "SETTLED" && (loan.status === "OVERDUE" || loan.daysDiff < 0);
+    }
+    if (filter === "SETTLED") {
+      return loan.status === "SETTLED";
     }
     return true;
   });
 
   const filterTabs = [
-    { id: "ALL" as const, label: `ทั้งหมด (${initialLoans.length})` },
-    { id: "TODAY" as const, label: `ต้องเก็บวันนี้ (${initialMetrics.dueTodayCount})`, dot: "bg-amber-500" },
-    { id: "OVERDUE" as const, label: `เกินกำหนด (${initialMetrics.totalOverdueCount})`, dot: "bg-rose-600" },
+    { id: "ALL" as const, label: `กำลังกู้ (${activeLoans.length})` },
+    { id: "TODAY" as const, label: `ต้องเก็บวันนี้ (${dueTodayLoans.length})`, dot: "bg-amber-500" },
+    { id: "OVERDUE" as const, label: `เกินกำหนด (${overdueLoans.length})`, dot: "bg-rose-600" },
+    { id: "SETTLED" as const, label: `ปิดยอดแล้ว (${settledLoans.length})`, dot: "bg-emerald-500" },
   ];
+
+  // Handle Payment Success with Instant Optimistic UI Update
+  const handlePaymentSuccess = (result: PaymentSuccessResult) => {
+    const prevLoan = loans.find((l) => l.id === result.loanId);
+    if (!prevLoan) return;
+
+    if (result.isSettlement) {
+      // Turn into settled immediately
+      setLoans((prev) =>
+        prev.map((l) =>
+          l.id === result.loanId
+            ? {
+                ...l,
+                status: "SETTLED",
+                remainingPrincipal: 0,
+                daysDiff: 0,
+                accruedInterest: 0,
+                penaltyAccrued: 0,
+              }
+            : l
+        )
+      );
+
+      // Update metrics
+      setMetrics((prev) => ({
+        ...prev,
+        totalPrincipalInMarket: Math.max(0, prev.totalPrincipalInMarket - prevLoan.remainingPrincipal),
+        cashBalance: prev.cashBalance + result.amountPaid,
+        activeLoansCount: Math.max(0, prev.activeLoansCount - 1),
+        settledCount: (prev.settledCount ?? settledLoans.length) + 1,
+        dueTodayCount: prevLoan.daysDiff === 0 ? Math.max(0, prev.dueTodayCount - 1) : prev.dueTodayCount,
+        totalOverdueCount: prevLoan.status === "OVERDUE" || prevLoan.daysDiff < 0 ? Math.max(0, prev.totalOverdueCount - 1) : prev.totalOverdueCount,
+      }));
+    } else if (result.payType === "PRINCIPAL_CUT") {
+      const cut = prevLoan.remainingPrincipal - result.remainingPrincipal;
+      setLoans((prev) =>
+        prev.map((l) =>
+          l.id === result.loanId
+            ? {
+                ...l,
+                remainingPrincipal: result.remainingPrincipal,
+                penaltyAccrued: 0,
+                accruedInterest: 0,
+              }
+            : l
+        )
+      );
+      setMetrics((prev) => ({
+        ...prev,
+        totalPrincipalInMarket: Math.max(0, prev.totalPrincipalInMarket - cut),
+        cashBalance: prev.cashBalance + result.amountPaid,
+      }));
+    } else {
+      // Interest only
+      setLoans((prev) =>
+        prev.map((l) =>
+          l.id === result.loanId
+            ? {
+                ...l,
+                rolloverCount: l.rolloverCount + 1,
+                penaltyAccrued: 0,
+                accruedInterest: 0,
+                daysDiff: l.termType === "DAYS_7" ? 7 : 10,
+                status: "ACTIVE",
+              }
+            : l
+        )
+      );
+      setMetrics((prev) => ({
+        ...prev,
+        cashBalance: prev.cashBalance + result.amountPaid,
+      }));
+    }
+
+    // Refresh server data in background
+    router.refresh();
+  };
+
+  // Handle Delete Loan Action
+  const handleConfirmDelete = async () => {
+    if (!loanToDelete) return;
+    setIsDeleting(true);
+
+    const deletedId = loanToDelete.id;
+    const deletedPrincipal = loanToDelete.remainingPrincipal;
+    const wasActive = loanToDelete.status !== "SETTLED";
+
+    const res = await deleteLoanAction(deletedId);
+    setIsDeleting(false);
+
+    if (res.success) {
+      // Optimistically remove from state
+      setLoans((prev) => prev.filter((l) => l.id !== deletedId));
+      if (wasActive) {
+        setMetrics((prev) => ({
+          ...prev,
+          totalPrincipalInMarket: Math.max(0, prev.totalPrincipalInMarket - deletedPrincipal),
+          activeLoansCount: Math.max(0, prev.activeLoansCount - 1),
+        }));
+      }
+      setLoanToDelete(null);
+      router.refresh();
+    } else {
+      alert(res.error ?? "เกิดข้อผิดพลาดในการลบสัญญา");
+    }
+  };
 
   return (
     <div className="w-full pb-24 md:pb-12">
-      {/* Main Content Area: Responsive Container */}
+      {/* Main Content Area */}
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5">
         {/* Metric Cards Banner */}
         {role === "OWNER" ? (
@@ -72,10 +214,10 @@ export function DashboardClient({
                 <TrendingUp className="size-4 text-emerald-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-zinc-900">
-                {initialMetrics.totalPrincipalInMarket.toLocaleString()} ฿
+                {metrics.totalPrincipalInMarket.toLocaleString()} ฿
               </p>
               <span className="text-[11px] text-zinc-400">
-                {initialMetrics.activeLoansCount} สัญญากำลังหมุนเวียน
+                {activeLoans.length} สัญญากำลังหมุนเวียน
               </span>
             </div>
 
@@ -86,7 +228,7 @@ export function DashboardClient({
                 <Wallet className="size-4 text-blue-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-blue-700">
-                {initialMetrics.cashBalance.toLocaleString()} ฿
+                {metrics.cashBalance.toLocaleString()} ฿
               </p>
               <span className="text-[11px] text-zinc-400">พร้อมเบิกปล่อยกู้</span>
             </div>
@@ -98,7 +240,7 @@ export function DashboardClient({
                 <AlertTriangle className="size-4 text-rose-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-rose-700">
-                {initialMetrics.totalOverdueCount} ราย
+                {overdueLoans.length} ราย
               </p>
               <span className="text-[11px] text-rose-600/80">
                 คิดค่าปรับรายวันอัตโนมัติ
@@ -114,7 +256,7 @@ export function DashboardClient({
                 <Clock className="size-4 text-amber-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-amber-800">
-                {initialMetrics.dueTodayCount} ราย
+                {dueTodayLoans.length} ราย
               </p>
               <span className="text-[11px] text-amber-700/80">รอบตัดดอก / ปิดยอด</span>
             </div>
@@ -125,14 +267,14 @@ export function DashboardClient({
                 <AlertTriangle className="size-4 text-rose-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-rose-700">
-                {initialMetrics.totalOverdueCount} ราย
+                {overdueLoans.length} ราย
               </p>
               <span className="text-[11px] text-rose-600/80">มีค่าปรับสะสม</span>
             </div>
           </div>
         )}
 
-        {/* Search & Filter Bar: Responsive Row */}
+        {/* Search & Filter Bar */}
         <div className="mt-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
@@ -170,7 +312,7 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Loan Cards List: Responsive Grid */}
+        {/* Loan Cards List */}
         <div className="mt-4">
           {filteredLoans.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -179,6 +321,7 @@ export function DashboardClient({
                   key={loan.id}
                   loan={loan}
                   onPaymentClick={() => setSelectedLoanForPayment(loan)}
+                  onDeleteClick={() => setLoanToDelete(loan)}
                 />
               ))}
             </div>
@@ -186,7 +329,9 @@ export function DashboardClient({
             <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center text-zinc-500 shadow-xs">
               <Layers className="size-10 text-zinc-400 mb-3 stroke-[1.5]" />
               <p className="text-sm font-bold text-zinc-800">ไม่พบรายการสัญญาตามเงื่อนไข</p>
-              <p className="text-xs text-zinc-400 mt-1">ลองค้นหาด้วยคำอื่นหรือกดดูทั้งหมด</p>
+              <p className="text-xs text-zinc-400 mt-1">
+                {filter === "SETTLED" ? "ยังไม่มีสัญญาที่ปิดยอดแล้ว" : "ลองค้นหาด้วยคำอื่นหรือกดดูทั้งหมด"}
+              </p>
             </div>
           )}
         </div>
@@ -197,8 +342,77 @@ export function DashboardClient({
         loan={selectedLoanForPayment}
         isOpen={Boolean(selectedLoanForPayment)}
         onClose={() => setSelectedLoanForPayment(null)}
-        onSuccess={() => setSelectedLoanForPayment(null)}
+        onSuccess={handlePaymentSuccess}
+        onDeleteRequest={(loan) => setLoanToDelete(loan)}
       />
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {loanToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setLoanToDelete(null)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl border border-zinc-200"
+            >
+              <div className="flex items-start gap-3.5">
+                <div className="size-10 shrink-0 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                  <Trash2 className="size-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-zinc-900">
+                    ยืนยันลบสัญญานี้?
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                    คุณต้องการลบสัญญาของ{" "}
+                    <strong className="text-zinc-800 font-semibold">{loanToDelete.borrowerName}</strong>{" "}
+                    (ยอดเงินต้น {loanToDelete.remainingPrincipal.toLocaleString()} บาท) ใช่หรือไม่? 
+                    รายการนี้จะถูกนำออกจากระบบทันที
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-2 border-t border-zinc-150 pt-3">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setLoanToDelete(null)}
+                  className="rounded-xl px-3.5 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>กำลังลบ...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="size-3.5" />
+                      <span>ลบสัญญา</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

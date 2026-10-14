@@ -11,11 +11,11 @@ export async function getDashboardData() {
   endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
   endOfTomorrow.setHours(23, 59, 59, 999);
 
-  // Fetch all active and overdue loans
+  // Fetch active, overdue, partially paid, and settled loans
   const loans = await prisma.loan.findMany({
     where: {
       status: {
-        in: ["ACTIVE", "OVERDUE", "PARTIALLY_PAID"],
+        in: ["ACTIVE", "OVERDUE", "PARTIALLY_PAID", "SETTLED"],
       },
       deletedAt: null,
     },
@@ -24,7 +24,7 @@ export async function getDashboardData() {
       agent: true,
     },
     orderBy: [
-      { status: "desc" }, // OVERDUE first
+      { status: "desc" }, // OVERDUE / ACTIVE first
       { currentDueDate: "asc" },
     ],
   });
@@ -54,17 +54,21 @@ export async function getDashboardData() {
     };
   });
 
+  // Active loans (excluding SETTLED and BAD_DEBT)
+  const activeLoans = mappedLoans.filter((l) => l.status !== "SETTLED" && l.status !== "BAD_DEBT");
+
   // Calculate Aggregated Metrics (for Owner)
-  const totalPrincipalInMarket = loans.reduce(
+  const totalPrincipalInMarket = activeLoans.reduce(
     (sum, l) => sum + l.remainingPrincipal,
     0
   );
 
-  const totalOverdueCount = mappedLoans.filter(
+  const totalOverdueCount = activeLoans.filter(
     (l) => l.status === "OVERDUE" || l.daysDiff < 0
   ).length;
 
-  const dueTodayCount = mappedLoans.filter((l) => l.daysDiff === 0).length;
+  const dueTodayCount = activeLoans.filter((l) => l.daysDiff === 0).length;
+  const settledCount = mappedLoans.filter((l) => l.status === "SETTLED").length;
 
   // Total cash ledger balance
   const ledgerEntries = await prisma.cashLedger.findMany();
@@ -82,7 +86,8 @@ export async function getDashboardData() {
       totalOverdueCount,
       dueTodayCount,
       cashBalance,
-      activeLoansCount: loans.length,
+      activeLoansCount: activeLoans.length,
+      settledCount,
     },
   };
 }

@@ -175,3 +175,51 @@ export async function createLoanAction(input: CreateLoanInput) {
     return { success: false, error: error.message ?? "เกิดข้อผิดพลาดในการเปิดสัญญา" };
   }
 }
+
+export async function deleteLoanAction(loanId: string) {
+  try {
+    if (!loanId) {
+      return { success: false, error: "ไม่พบรหัสสัญญาเงินกู้" };
+    }
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { borrower: true },
+    });
+
+    if (!loan) {
+      return { success: false, error: "ไม่พบข้อมูลสัญญากู้เงินนี้" };
+    }
+
+    // Soft delete loan
+    await prisma.loan.update({
+      where: { id: loanId },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: loan.agentId,
+        action: "DELETE_LOAN",
+        targetId: loan.id,
+        details: JSON.stringify({
+          borrowerName: loan.borrower?.fullName,
+          remainingPrincipal: loan.remainingPrincipal,
+        }),
+      },
+    });
+
+    revalidatePath("/");
+    revalidatePath("/borrowers");
+    revalidatePath("/ledger");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Delete loan error:", error);
+    return { success: false, error: error.message ?? "ลบสัญญาล้มเหลว" };
+  }
+}
+
