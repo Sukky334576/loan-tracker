@@ -93,3 +93,32 @@
 ### Round 1 Deployment (2026-10-15):
 - ได้ทำการแก้ไข Phase 1 (5 ข้อ) และพัฒนา Phase 2 (5 ข้อ) ครบถ้วนทุกข้อ พร้อมเซ็ตอัป Vercel Blob persistence และ Deploy ขึ้น Production เรียบร้อยครับ
 
+---
+
+## 🏆 Final Sign-Off Report (Round 2 — Production Accepted)
+
+### 1. สถานะการตรวจรับงานขั้นสุดท้าย: APPROVED FOR PRODUCTION (ผ่านการตรวจรับ 100%)
+
+จากการตรวจสอบผลการรัน Build (`npm run build`), ชุดทดสอบอัตโนมัติ End-to-End (`test_journey.mjs` ผ่านครบ 10/10 ขั้นตอน) และการเข้าไปตรวจสอบหน้าเว็บจริงบน Production ([https://loan-tracker-blush.vercel.app](https://loan-tracker-blush.vercel.app)) หลัง Deploy รอบล่าสุด ยืนยันว่าบั๊กทั้งหมดใน **Phase 1 (5 ข้อ)**, ฟีเจอร์ทั้งหมดใน **Phase 2 (5 ข้อ)** และรายการเก็บงาน **Hotfix Round 2 (3 ข้อ)** ได้รับการแก้ไขและทำงานสอดคล้องกันครบสมบูรณ์แล้ว
+
+| หมวดหมู่การตรวจสอบ | สถานะ | ผลการตรวจสอบบน Production ล่าสุด |
+| :--- | :--- | :--- |
+| **1. ระบบล็อกอินสลับสิทธิ์ & RBAC** ([`/login`](https://loan-tracker-blush.vercel.app/login) & [`/ledger`](https://loan-tracker-blush.vercel.app/ledger)) | **PASSED 100%** | ล็อกอินด้วย `Owner (farafull)` และ `Agent (agent1)` แยกสิทธิ์ชัดเจน ซ่อนและล็อกการเข้าถึงหน้าบัญชีกองกลาง ([`/ledger`](https://loan-tracker-blush.vercel.app/ledger)) จาก Agent ทั้งระดับ UI และ Server-side |
+| **2. ความคงอยู่ของข้อมูล (Data Persistence)** ([`/borrowers`](https://loan-tracker-blush.vercel.app/borrowers) & [`/ledger`](https://loan-tracker-blush.vercel.app/ledger)) | **PASSED 100%** | ข้อมูลผู้กู้ (เช่น รายการ `สมชาย ใจดี [NEW]` วงเงิน `2,000 ฿` ในหน้า [`/borrowers`](https://loan-tracker-blush.vercel.app/borrowers)) แสดงผลคงอยู่จริงผ่านการซิงค์ฐานข้อมูลกับ `@vercel/blob` โดยไม่หลุดหายเมื่อเปลี่ยนหน้าหรือเกิด Cold Start |
+| **3. หน้าแดชบอร์ดและการเชื่อมโยงยอดเงิน** ([`/`](https://loan-tracker-blush.vercel.app/)) | **PASSED 100%** | การ์ดสรุปผลแสดง **ยอดเงินหมุนเวียนในตลาด**, **เงินสดกองกลางคงเหลือ**, และ **เกินกำหนดชำระ** พร้อมตัวกรองสถานะ 4 แท็บ (`กำลังกู้`, `ต้องเก็บวันนี้`, `เกินกำหนด`, `ปิดยอดแล้ว`) และปุ่ม Export CSV ทำงานสมบูรณ์ |
+| **4. การสร้างสัญญาเงินกู้ & หน้าใบสัญญา** ([`/loans/new`](https://loan-tracker-blush.vercel.app/loans/new)) | **PASSED 100%** | แก้ไขปัญหา Redirect 404 หลังสร้างสัญญาเรียบร้อยแล้ว รองรับทั้งผู้กู้เดิม ผู้กู้รายใหม่ (Walk-in) และโหมดกำหนดเงื่อนไขดอกเบี้ย/จำนวนวันเอง (Custom Term) |
+| **5. ระบบรับชำระเงิน 3 รูปแบบ & ใบเสร็จดิจิทัล** ([`/`](https://loan-tracker-blush.vercel.app/) & [`/ledger`](https://loan-tracker-blush.vercel.app/ledger)) | **PASSED 100%** | รองรับการรับชำระทั้งแบบตัดสดปิดสัญญา (`SETTLE`), ต่อดอกเบี้ย (`INTEREST`), และตัดต้นลดดอก (`PRINCIPAL_CUT`) พร้อมอัปเดตยอดเงินสดกองกลางและสร้างสลิปใบเสร็จรับเงินดิจิทัล |
+| **6. UI/UX, Modal Backdrop & ฟอนต์ภาษาไทย** | **PASSED 100%** | ฟอนต์ภาษาไทย **Prompt** คมชัดทุกหน้า และหน้าต่าง Modal ทุกจุดมีพื้นหลังทึบแสง 100% พร้อม Backdrop กั้นด้านหลังชัดเจน |
+
+### 2. Argon Final Feedback & Handover Notes (สำหรับใช้งานจริง)
+
+1. **ลำดับการเริ่มต้นใช้งานจริง (Initial Setup):**
+   * ล็อกอินด้วยบัญชี **Owner (`farafull`)** แล้วเข้าไปที่ [หน้าบัญชีกองกลาง (`/ledger`)](https://loan-tracker-blush.vercel.app/ledger) เพื่อตั้งยอด **เงินทุนตั้งต้น (Capital Injection)** ตามเงินสดจริงที่มีอยู่ก่อนเริ่มเปิดสัญญาเงินกู้ใบแรก
+2. **การสำรองข้อมูลประจำสัปดาห์ (Backup Routine):**
+   * แนะนำให้กดปุ่ม **Export CSV** ใน [หน้าแดชบอร์ด (`/`)](https://loan-tracker-blush.vercel.app/) และ [หน้าบัญชีกองกลาง (`/ledger`)](https://loan-tracker-blush.vercel.app/ledger) เก็บสำรองไว้สัปดาห์ละ 1 ครั้งเพื่อใช้ตรวจสอบทางบัญชีควบคู่กัน
+
+**Sign-off by:** Gemini Argon (Tech Lead & QA)  
+**Lead Developer:** Antigravity (Google DeepMind)  
+**Final Status:** ✅ **CLOSED / PRODUCTION READY (100% ACCEPTED)**
+
+
