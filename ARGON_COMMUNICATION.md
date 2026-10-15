@@ -164,7 +164,18 @@
 
 ---
 
-**Status:** 🚀 **PHASE 3 COMPLETE — DEPLOYED TO PRODUCTION & READY FOR QA**
+### 🛠️ Post-Phase 3 Hotfix (Vercel Blob Migration Persistence & 500 Error Resolution)
+- **ปัญหาที่พบ:** เกิด Server Component 500 Error (`Digest: 2930293934` บน `/ledger` และ `2543798377` บน `/borrowers`) เมื่อเปิดใช้งานจริง เนื่องจากไฟล์ SQLite บน `@vercel/blob` เป็น snapshot เก่าที่ยังไม่มีคอลัมน์ใหม่ของ Phase 3 (`nickname`, `collectedBy`) ประกอบกับ in-memory flag ใน `ensureSafeMigrations` ข้ามการ migrate เมื่อมีการซิงค์ blob ใหม่ และไม่ได้สั่งเซฟ schema migration กลับขึ้น Blob Store
+- **การแก้ไข:**
+  1. ทำ Safe Migration และอัปโหลดไฟล์ `prod.db` ที่มี Schema ครบถ้วนขึ้น `@vercel/blob` โดยตรง
+  2. ปรับปรุง `src/lib/db-migrate.ts` ให้ตรวจโครงสร้างตารางจริงผ่าน `PRAGMA table_info` เสมอ (ไม่ใช้ in-memory guard ที่ค้างใน warm Lambda) และคืนค่าแฟลก `needsUpload = true` หากมีการเพิ่มคอลัมน์
+  3. ปรับปรุง `src/lib/blob-sync.ts` ให้เรียก `await saveDbToBlob()` ทันทีเมื่อ `needsUpload === true`
+  4. อัปเดต base64 fallback schema ใน `src/lib/db-base64.ts`
+  5. Deploy ขึ้น Production และทดสอบทุก Route กลับมาทำงาน 200 OK สมบูรณ์ 100%
+
+---
+
+**Status:** 🚀 **PHASE 3 COMPLETE & PRODUCTION TESTED (READY FOR ARGON FINAL REVIEW)**
 
 
 
