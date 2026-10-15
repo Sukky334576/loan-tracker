@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
 import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
 
+import { getSession } from "@/app/actions/auth";
+
 export interface CreateLoanInput {
   borrowerId: string;
   principal: number;
@@ -24,6 +26,9 @@ export interface CreateLoanInput {
 export async function createLoanAction(input: CreateLoanInput) {
   try {
     await syncDbFromBlob(true);
+
+    const session = await getSession();
+    const isAgent = session?.role === "AGENT";
 
     const {
       borrowerId,
@@ -63,8 +68,28 @@ export async function createLoanAction(input: CreateLoanInput) {
       return { success: false, error: "ไม่พบข้อมูลลูกหนี้" };
     }
 
-    if (borrower.creditGrade === "BLACKLIST") {
-      return { success: false, error: "ลูกหนี้ติดแบล็กลิสต์ ไม่อนุญาตให้เปิดสัญญาใหม่" };
+    // Check dynamic overdue loans for watchlist / blacklist
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const hasOverdueLoans = borrower.loans.some((l) => {
+      const due = new Date(l.currentDueDate);
+      return due.getTime() < startOfToday.getTime();
+    });
+
+    const isRestricted =
+      borrower.creditGrade === "BLACKLIST" ||
+      borrower.creditGrade === "WATCHLIST" ||
+      hasOverdueLoans;
+
+    if (isAgent && isRestricted) {
+      return {
+        success: false,
+        error: `ลูกหนี้ติดสถานะ ${borrower.creditGrade === "BLACKLIST" ? "BLACKLIST" : "เฝ้าระวัง (WATCHLIST/ค้างชำระ)"} — ไม่อนุญาตให้สายตรวจ (Agent) เปิดสัญญาใหม่ (สงวนสิทธิ์เฉพาะนายทุนเท่านั้น)`,
+      };
+    }
+
+    if (!isAgent && borrower.creditGrade === "BLACKLIST") {
+      // Owner override allowed or can unlock
     }
 
     // 2. Check Credit Limit
@@ -118,11 +143,11 @@ export async function createLoanAction(input: CreateLoanInput) {
       };
     }
 
-    // 5. Find first active agent or default
+    // 5. Find current active agent or default
     const agent = await prisma.user.findFirst({
       where: { role: "AGENT" },
     });
-    const agentId = agent?.id ?? borrower.agentId;
+    const agentId = session?.id ?? agent?.id ?? borrower.agentId;
 
     // 6. Execute Atomic Transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -159,8 +184,8 @@ export async function createLoanAction(input: CreateLoanInput) {
           amount: disbursedAmount,
           referenceId: loan.id,
           description: isUpfrontDeduction
-            ? `ปล่อยกู้ ${borrower.fullName} (ยอดกู้ ${principal.toLocaleString()} ฿ หักดอกล่วงหน้า ${upfrontDeductionAmount.toLocaleString()} ฿ โอนจริง ${disbursedAmount.toLocaleString()} ฿)`
-            : `ปล่อยกู้ ${borrower.fullName} (ยอดกู้ ${principal.toLocaleString()} ฿ หักค่าดำเนินการ ${processingFee} ฿ โอนจริง ${disbursedAmount.toLocaleString()} ฿)`,
+            ? `ปล่อยกู้ ${borrower.fullName} โดย ${session?.username || "เจ้าหน้าที่"} (ยอดกู้ ${principal.toLocaleString()} ฿ หักดอกล่วงหน้า ${upfrontDeductionAmount.toLocaleString()} ฿ โอนจริง ${disbursedAmount.toLocaleString()} ฿)`
+            : `ปล่อยกู้ ${borrower.fullName} โดย ${session?.username || "เจ้าหน้าที่"} (ยอดกู้ ${principal.toLocaleString()} ฿ หักค่าดำเนินการ ${processingFee} ฿ โอนจริง ${disbursedAmount.toLocaleString()} ฿)`,
         },
       });
 
@@ -180,9 +205,10 @@ export async function createLoanAction(input: CreateLoanInput) {
       await tx.auditLog.create({
         data: {
           userId: agentId,
-          action: "CREATE_LOAN",
+          action: "LOAN_CREATE",
           targetId: loan.id,
           details: JSON.stringify({
+            creator: session?.username || "AGENT",
             borrowerName: borrower.fullName,
             principal,
             termType,
@@ -261,4 +287,93 @@ export async function deleteLoanAction(loanId: string) {
     return { success: false, error: error.message ?? "ลบสัญญาล้มเหลว" };
   }
 }
+
+export async function writeOffBadDebtAction(loanId: string, reason?: string) {
+  try {
+    const session = await getSession();
+    if (session && session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการตัดจำหน่ายหนี้สูญ" };
+    }
+
+    await syncDbFromBlob(true);
+
+    if (!loanId) {
+      return { success: false, error: "ไม่พบรหัสสัญญาเงินกู้" };
+    }
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { borrower: true },
+    });
+
+    if (!loan) {
+      return { success: false, error: "ไม่พบข้อมูลสัญญากู้เงินนี้" };
+    }
+
+    if (loan.status === "SETTLED" || loan.status === "BAD_DEBT") {
+      return { success: false, error: "สัญญานี้ไม่ได้อยู่ในสถานะค้างชำระ" };
+    }
+
+    const lossAmount = loan.remainingPrincipal;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update loan status to BAD_DEBT
+      await tx.loan.update({
+        where: { id: loan.id },
+        data: {
+          status: "BAD_DEBT",
+          closedAt: new Date(),
+        },
+      });
+
+      // 2. Set borrower to BLACKLIST
+      await tx.borrower.update({
+        where: { id: loan.borrowerId },
+        data: {
+          creditGrade: "BLACKLIST",
+        },
+      });
+
+      // 3. Record in CashLedger as WITHDRAWAL (Loss)
+      await tx.cashLedger.create({
+        data: {
+          type: "WITHDRAWAL",
+          amount: lossAmount,
+          referenceId: loan.id,
+          description: `ตัดจำหน่ายหนี้สูญ ${loan.borrower.fullName} (ยอดเงินต้นคงค้าง ${lossAmount.toLocaleString()} ฿)${reason ? ` - ${reason}` : ""}`,
+        },
+      });
+
+      // 4. Audit Log
+      const ownerUser = await tx.user.findFirst({ where: { role: "OWNER" } });
+      const actorId = session?.id || ownerUser?.id || "SYSTEM";
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: "LOAN_BAD_DEBT",
+          targetId: loan.id,
+          details: JSON.stringify({
+            borrowerName: loan.borrower.fullName,
+            borrowerId: loan.borrowerId,
+            lossAmount,
+            reason: reason || "ลูกหนี้ค้างชำระเกินกำหนด ไม่สามารถตามตัวได้",
+          }),
+        },
+      });
+    });
+
+    await saveDbToBlob();
+
+    safeRevalidate("/");
+    safeRevalidate("/borrowers");
+    safeRevalidate(`/borrowers/${loan.borrowerId}`);
+    safeRevalidate("/ledger");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("writeOffBadDebtAction error:", error);
+    return { success: false, error: error.message ?? "ตัดหนี้สูญล้มเหลว" };
+  }
+}
+
 

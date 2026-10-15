@@ -21,10 +21,25 @@ import {
   User,
   ExternalLink,
   Loader2,
-  X
+  X,
+  Camera,
+  Image as ImageIcon,
+  Check,
+  MessageCircle,
+  Receipt
 } from "lucide-react";
 import { updateBorrowerAction } from "@/app/actions/borrowers";
+import { formatLineReminderText } from "@/lib/line-reminder";
+import { compressImageToDataUrl } from "@/lib/image-compress";
 import { motion, AnimatePresence } from "motion/react";
+
+export interface BorrowerPaymentItem {
+  id: string;
+  amountPaid: number;
+  paidAt: string;
+  slipUrl?: string;
+  paymentType: string;
+}
 
 export interface BorrowerLoanItem {
   id: string;
@@ -40,12 +55,14 @@ export interface BorrowerLoanItem {
   closedAt: string | null;
   paymentsCount: number;
   totalPaid: number;
+  payments?: BorrowerPaymentItem[];
 }
 
 export interface BorrowerProfileData {
   id: string;
   citizenId: string;
   fullName: string;
+  nickname?: string | null;
   phone: string;
   workplace: string | null;
   addressOnCard: string | null;
@@ -57,6 +74,8 @@ export interface BorrowerProfileData {
   createdAt: string;
   guarantorName: string | null;
   guarantorPhone: string | null;
+  idCardPhoto?: string | null;
+  storeOrHomePhoto?: string | null;
   activePrincipal: number;
   availableCredit: number;
   loans: BorrowerLoanItem[];
@@ -71,23 +90,53 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
   const router = useRouter();
   const [data, setData] = useState<BorrowerProfileData>(borrower);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImageTitle, setPreviewImageTitle] = useState<string>("");
+  const [copiedLoanId, setCopiedLoanId] = useState<string | null>(null);
 
   // Edit form state
   const [editFullName, setEditFullName] = useState(data.fullName);
+  const [editNickname, setEditNickname] = useState(data.nickname ?? "");
   const [editPhone, setEditPhone] = useState(data.phone);
   const [editWorkplace, setEditWorkplace] = useState(data.workplace ?? "");
   const [editAddress, setEditAddress] = useState(data.addressOnCard ?? "");
   const [editBackupPhone, setEditBackupPhone] = useState(data.backupPhone ?? "");
   const [editFacebookUrl, setEditFacebookUrl] = useState(data.facebookUrl ?? "");
-  const [editCreditGrade, setEditCreditGrade] = useState<"NEW" | "GOOD" | "BLACKLIST">(
+  const [editCreditGrade, setEditCreditGrade] = useState<"NEW" | "GOOD" | "VIP" | "WATCHLIST" | "BLACKLIST">(
     (data.creditGrade as any) || "NEW"
   );
   const [editCreditLimit, setEditCreditLimit] = useState(data.creditLimit.toString());
   const [editGuarantorName, setEditGuarantorName] = useState(data.guarantorName ?? "");
   const [editGuarantorPhone, setEditGuarantorPhone] = useState(data.guarantorPhone ?? "");
+  const [editIdCardPhoto, setEditIdCardPhoto] = useState<string | null>(data.idCardPhoto ?? null);
+  const [editStorePhoto, setEditStorePhoto] = useState<string | null>(data.storeOrHomePhoto ?? null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  const handleIdCardUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImageToDataUrl(file, 1200, 1200, 0.75);
+        setEditIdCardPhoto(compressed);
+      } catch (err) {
+        console.error("ID Card compression error:", err);
+      }
+    }
+  };
+
+  const handleStorePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImageToDataUrl(file, 1200, 1200, 0.75);
+        setEditStorePhoto(compressed);
+      } catch (err) {
+        console.error("Store photo compression error:", err);
+      }
+    }
+  };
 
   const handleSaveBorrower = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +153,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
     const res = await updateBorrowerAction({
       borrowerId: data.id,
       fullName: editFullName.trim(),
+      nickname: editNickname.trim() || undefined,
       phone: editPhone.trim(),
       workplace: editWorkplace.trim() || undefined,
       addressOnCard: editAddress.trim() || undefined,
@@ -113,6 +163,8 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
       creditLimit: limitNum,
       guarantorName: editGuarantorName.trim() || undefined,
       guarantorPhone: editGuarantorPhone.trim() || undefined,
+      idCardPhoto: editIdCardPhoto || undefined,
+      storeOrHomePhoto: editStorePhoto || undefined,
     });
 
     setIsSubmitting(false);
@@ -121,6 +173,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
       setData((prev) => ({
         ...prev,
         fullName: editFullName.trim(),
+        nickname: editNickname.trim() || null,
         phone: editPhone.trim(),
         workplace: editWorkplace.trim() || null,
         addressOnCard: editAddress.trim() || null,
@@ -131,11 +184,40 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
         availableCredit: Math.max(0, limitNum - prev.activePrincipal),
         guarantorName: editGuarantorName.trim() || null,
         guarantorPhone: editGuarantorPhone.trim() || null,
+        idCardPhoto: editIdCardPhoto,
+        storeOrHomePhoto: editStorePhoto,
       }));
       setIsEditModalOpen(false);
       router.refresh();
     } else {
       setEditError(res.error ?? "แก้ไขข้อมูลล้มเหลว");
+    }
+  };
+
+  const handleCopyLineReminder = async (loan: BorrowerLoanItem) => {
+    const now = new Date();
+    const due = new Date(loan.currentDueDate);
+    const diffTime = due.getTime() - now.setHours(0,0,0,0);
+    const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const cycleInterest = loan.remainingPrincipal * loan.interestRate;
+
+    const text = formatLineReminderText({
+      borrowerName: data.fullName,
+      nickname: data.nickname,
+      remainingPrincipal: loan.remainingPrincipal,
+      cycleInterest,
+      penaltyAccrued: loan.penaltyAccrued,
+      currentDueDate: loan.currentDueDate,
+      daysDiff,
+      status: loan.status,
+    });
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLoanId(loan.id);
+      setTimeout(() => setCopiedLoanId(null), 2500);
+    } catch {
+      // Fallback
     }
   };
 
@@ -184,12 +266,21 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                   <h1 className="text-xl font-bold tracking-tight text-zinc-900">
                     {data.fullName}
                   </h1>
+                  {data.nickname && (
+                    <span className="text-sm font-semibold text-zinc-500">
+                      ({data.nickname})
+                    </span>
+                  )}
                   <span
                     className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
-                      data.creditGrade === "GOOD"
+                      data.creditGrade === "VIP"
+                        ? "bg-purple-50 text-purple-700 border border-purple-200"
+                        : data.creditGrade === "GOOD"
                         ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : data.creditGrade === "WATCHLIST"
+                        ? "bg-amber-50 text-amber-800 border border-amber-300 font-extrabold"
                         : data.creditGrade === "BLACKLIST"
-                        ? "bg-rose-50 text-rose-700 border border-rose-200"
+                        ? "bg-rose-50 text-rose-700 border border-rose-200 font-extrabold"
                         : "bg-zinc-100 text-zinc-700 border border-zinc-200"
                     }`}
                   >
@@ -256,7 +347,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
 
         {/* Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
-          {/* Contact & Personal Info */}
+          {/* Contact & Personal Info + Photos */}
           <div className="md:col-span-1 flex flex-col gap-3.5">
             <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 text-xs shadow-xs">
               <h3 className="font-bold text-zinc-900 mb-2.5 flex items-center gap-1.5">
@@ -297,6 +388,83 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                 </div>
               </div>
             </div>
+
+            {/* Document & Slip Photos Card (Feature 2.3) */}
+            <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 text-xs shadow-xs">
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="font-bold text-zinc-900 flex items-center gap-1.5">
+                  <Camera className="size-4 text-zinc-500" />
+                  <span>ภาพถ่ายหลักฐานในระบบ</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="text-[11px] text-blue-600 hover:underline cursor-pointer"
+                >
+                  + เพิ่มรูป
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {/* ID Card Thumbnail */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold text-zinc-500">บัตรประชาชน</span>
+                  {data.idCardPhoto ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewImageUrl(data.idCardPhoto!);
+                        setPreviewImageTitle(`ภาพบัตรประชาชน — ${data.fullName}`);
+                      }}
+                      className="group relative h-24 w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 hover:border-zinc-400 transition-all cursor-pointer"
+                    >
+                      <img
+                        src={data.idCardPhoto}
+                        alt="ID Card"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      <span className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                        แตะดูรูปเต็ม
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex h-24 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 text-zinc-400 text-[10px]">
+                      <CreditCard className="size-5 mb-1 text-zinc-300" />
+                      <span>ยังไม่มีรูป</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Store/Home Thumbnail */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold text-zinc-500">หน้าร้าน / บ้าน</span>
+                  {data.storeOrHomePhoto ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewImageUrl(data.storeOrHomePhoto!);
+                        setPreviewImageTitle(`ภาพหน้าร้าน/ที่พัก — ${data.fullName}`);
+                      }}
+                      className="group relative h-24 w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 hover:border-zinc-400 transition-all cursor-pointer"
+                    >
+                      <img
+                        src={data.storeOrHomePhoto}
+                        alt="Store/Home"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      <span className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                        แตะดูรูปเต็ม
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex h-24 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 text-zinc-400 text-[10px]">
+                      <ImageIcon className="size-5 mb-1 text-zinc-300" />
+                      <span>ยังไม่มีรูป</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Loan History List */}
@@ -312,6 +480,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                 <div className="flex flex-col gap-2.5">
                   {data.loans.map((loan) => {
                     const isSettled = loan.status === "SETTLED";
+                    const isBadDebt = loan.status === "BAD_DEBT";
                     const createdDateStr = new Date(loan.createdAt).toLocaleDateString("th-TH", {
                       day: "numeric",
                       month: "short",
@@ -325,53 +494,109 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                     return (
                       <div
                         key={loan.id}
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-3.5 transition-all ${
+                        className={`flex flex-col gap-2 rounded-xl border p-3.5 transition-all ${
                           isSettled
                             ? "border-emerald-200/80 bg-emerald-50/20"
+                            : isBadDebt
+                            ? "border-rose-200/80 bg-rose-50/20"
                             : "border-zinc-200 bg-zinc-50/70"
                         }`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-zinc-900">
-                              สัญญา {loan.termType === "DAYS_7" ? "รอบ 7 วัน" : loan.termType === "DAYS_10" ? "รอบ 10 วัน" : "กำหนดเอง"}
-                            </span>
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                isSettled
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : loan.status === "OVERDUE"
-                                  ? "bg-rose-100 text-rose-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }`}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-zinc-900">
+                                สัญญา {loan.termType === "DAYS_7" ? "รอบ 7 วัน" : loan.termType === "DAYS_10" ? "รอบ 10 วัน" : "กำหนดเอง"}
+                              </span>
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                  isSettled
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : isBadDebt
+                                    ? "bg-rose-200 text-rose-900"
+                                    : loan.status === "OVERDUE"
+                                    ? "bg-rose-100 text-rose-800"
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {isSettled ? "ปิดยอดแล้ว ✅" : isBadDebt ? "หนี้สูญ ❌" : loan.status === "OVERDUE" ? "เกินกำหนด ⚠️" : "กำลังผ่อนชำระ"}
+                              </span>
+                            </div>
+
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-zinc-500">
+                              <span>วันที่เปิด: {createdDateStr}</span>
+                              <span>ครบกำหนด: {dueDateStr}</span>
+                              <span>ต่อดอกแล้ว: {loan.rolloverCount}/3 รอบ</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                            <div className="text-right">
+                              <span className="text-[10px] text-zinc-400">เงินต้นค้าง / เงินต้นกู้</span>
+                              <p className="font-mono text-xs font-bold tabular-nums text-zinc-900">
+                                {loan.remainingPrincipal.toLocaleString()} / {loan.initialPrincipal.toLocaleString()} ฿
+                              </p>
+                            </div>
+
+                            {/* 1-Click Copy LINE Reminder (Feature 1.1) */}
+                            {!isSettled && !isBadDebt && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyLineReminder(loan)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                title="คัดลอกข้อความแจ้งยอดส่ง LINE"
+                              >
+                                {copiedLoanId === loan.id ? (
+                                  <>
+                                    <Check className="size-3 text-emerald-700" />
+                                    <span>คัดลอกแล้ว!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <MessageCircle className="size-3 text-emerald-600" />
+                                    <span>แจ้งยอด LINE</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+
+                            <Link
+                              href={`/loans/${loan.id}/contract`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition-colors"
                             >
-                              {isSettled ? "ปิดยอดแล้ว ✅" : loan.status === "OVERDUE" ? "เกินกำหนด ⚠️" : "กำลังผ่อนชำระ"}
+                              <FileText className="size-3.5" />
+                              <span>สัญญา</span>
+                            </Link>
+                          </div>
+                        </div>
+
+                        {/* Payment Slips in Loan History (Feature 2.3) */}
+                        {loan.payments && loan.payments.some((p) => p.slipUrl && p.slipUrl !== "/slip-placeholder.png") && (
+                          <div className="mt-2 border-t border-zinc-200/80 pt-2 flex items-center gap-2">
+                            <span className="text-[10px] text-zinc-500 font-semibold flex items-center gap-1">
+                              <Receipt className="size-3 text-emerald-600" />
+                              <span>สลิปการโอนเงิน:</span>
                             </span>
+                            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                              {loan.payments
+                                .filter((p) => p.slipUrl && p.slipUrl !== "/slip-placeholder.png")
+                                .map((p) => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewImageUrl(p.slipUrl!);
+                                      setPreviewImageTitle(`สลิปชำระเงิน ${p.amountPaid.toLocaleString()} ฿ — ${new Date(p.paidAt).toLocaleDateString("th-TH")}`);
+                                    }}
+                                    className="group relative size-7 rounded-md overflow-hidden border border-zinc-300 hover:border-zinc-500 shrink-0 cursor-pointer"
+                                    title="แตะดูภาพสลิป"
+                                  >
+                                    <img src={p.slipUrl} alt="Slip" className="size-full object-cover" />
+                                  </button>
+                                ))}
+                            </div>
                           </div>
-
-                          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-zinc-500">
-                            <span>วันที่เปิด: {createdDateStr}</span>
-                            <span>ครบกำหนด: {dueDateStr}</span>
-                            <span>ต่อดอกแล้ว: {loan.rolloverCount}/3 รอบ</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                          <div className="text-right">
-                            <span className="text-[10px] text-zinc-400">เงินต้นค้าง / เงินต้นกู้</span>
-                            <p className="font-mono text-xs font-bold tabular-nums text-zinc-900">
-                              {loan.remainingPrincipal.toLocaleString()} / {loan.initialPrincipal.toLocaleString()} ฿
-                            </p>
-                          </div>
-
-                          <Link
-                            href={`/loans/${loan.id}/contract`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition-colors"
-                          >
-                            <FileText className="size-3.5" />
-                            <span>สัญญา</span>
-                          </Link>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
@@ -385,6 +610,47 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
           </div>
         </div>
       </main>
+
+      {/* Image Lightbox Modal (Feature 2.3) */}
+      <AnimatePresence>
+        {previewImageUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPreviewImageUrl(null)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative z-10 max-h-[90vh] max-w-lg w-full rounded-2xl bg-white p-4 shadow-2xl flex flex-col items-center"
+            >
+              <div className="flex w-full items-center justify-between pb-2 border-b border-zinc-150 mb-3">
+                <span className="text-xs font-bold text-zinc-900 truncate">
+                  {previewImageTitle}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageUrl(null)}
+                  className="flex size-7 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 cursor-pointer"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="w-full max-h-[70vh] overflow-auto rounded-xl flex items-center justify-center bg-zinc-950">
+                <img
+                  src={previewImageUrl}
+                  alt="Full preview"
+                  className="max-h-[68vh] w-auto object-contain"
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Borrower & Credit Adjustment Modal */}
       <AnimatePresence>
@@ -439,7 +705,9 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-bold text-zinc-900 focus:outline-none"
                     >
                       <option value="NEW">NEW (ผู้กู้ใหม่)</option>
-                      <option value="GOOD">GOOD (ชั้นดี/ประวัติดี)</option>
+                      <option value="GOOD">GOOD (ชั้นดี/ตรงเวลา 3 สัญญา)</option>
+                      <option value="VIP">VIP (ลูกค้า VIP/ตรงเวลา 6 สัญญา)</option>
+                      <option value="WATCHLIST">WATCHLIST (เฝ้าระวัง/มีประวัติค้าง)</option>
                       <option value="BLACKLIST">BLACKLIST (ติดแบล็กลิสต์/ห้ามกู้)</option>
                     </select>
                   </div>
@@ -459,17 +727,31 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                    ชื่อ-นามสกุล
-                  </label>
-                  <input
-                    type="text"
-                    value={editFullName}
-                    onChange={(e) => setEditFullName(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
-                    required
-                  />
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                      ชื่อ-นามสกุล
+                    </label>
+                    <input
+                      type="text"
+                      value={editFullName}
+                      onChange={(e) => setEditFullName(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                      ชื่อเล่น
+                    </label>
+                    <input
+                      type="text"
+                      value={editNickname}
+                      onChange={(e) => setEditNickname(e.target.value)}
+                      placeholder="เช่น เอก"
+                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5">
@@ -545,6 +827,37 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       onChange={(e) => setEditGuarantorPhone(e.target.value)}
                       className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-mono text-zinc-900 focus:outline-none"
                     />
+                  </div>
+                </div>
+
+                {/* Photo Update Fields */}
+                <div className="grid grid-cols-2 gap-2.5 border-t border-zinc-150 pt-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                      อัปเดตรูปบัตรประชาชน
+                    </label>
+                    <label className="flex h-16 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-2 text-center hover:bg-zinc-100">
+                      {editIdCardPhoto ? (
+                        <span className="text-[10px] font-bold text-emerald-700">✓ แนบรูปแล้ว (แตะเปลี่ยน)</span>
+                      ) : (
+                        <span className="text-[10px] text-zinc-500">แตะเพื่อถ่าย/เลือกรูป</span>
+                      )}
+                      <input type="file" accept="image/*" onChange={handleIdCardUpload} className="hidden" />
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                      อัปเดตรูปหน้าร้าน/บ้าน
+                    </label>
+                    <label className="flex h-16 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-2 text-center hover:bg-zinc-100">
+                      {editStorePhoto ? (
+                        <span className="text-[10px] font-bold text-emerald-700">✓ แนบรูปแล้ว (แตะเปลี่ยน)</span>
+                      ) : (
+                        <span className="text-[10px] text-zinc-500">แตะเพื่อถ่าย/เลือกรูป</span>
+                      )}
+                      <input type="file" accept="image/*" onChange={handleStorePhotoUpload} className="hidden" />
+                    </label>
                   </div>
                 </div>
 

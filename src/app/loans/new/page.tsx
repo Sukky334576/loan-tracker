@@ -2,17 +2,22 @@ import { prisma } from "@/lib/prisma";
 import { NewLoanForm } from "@/components/NewLoanForm";
 import { syncDbFromBlob } from "@/lib/blob-sync";
 
+import { getSession } from "@/app/actions/auth";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function NewLoanPage() {
   await syncDbFromBlob(true);
+  const session = await getSession();
+  const userRole = session?.role || "AGENT";
 
   const [borrowers, ledgerEntries] = await Promise.all([
     prisma.borrower.findMany({
       where: { 
         deletedAt: null,
-        creditGrade: { not: "BLACKLIST" },
+        // If agent, don't show blacklisted; if owner, show all
+        ...(userRole === "AGENT" ? { creditGrade: { not: "BLACKLIST" } } : {}),
       },
       select: {
         id: true,
@@ -70,6 +75,7 @@ export default async function NewLoanPage() {
         <NewLoanForm 
           borrowers={formattedBorrowers} 
           cashBalance={cashBalance}
+          userRole={userRole}
         />
       </main>
     </div>

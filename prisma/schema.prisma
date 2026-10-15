@@ -16,6 +16,8 @@ enum Role {
 enum CreditGrade {
   NEW
   GOOD
+  VIP
+  WATCHLIST
   BLACKLIST
 }
 
@@ -71,12 +73,14 @@ model Borrower {
   id              String      @id @default(cuid())
   citizenId       String      @unique
   fullName        String
+  nickname        String?
   phone           String
   workplace       String?
   facebookUrl     String?     // ลิงก์ Social Media สำหรับตามตัว
   backupPhone     String?     // เบอร์โทรสำรอง/ญาติ
   addressOnCard   String?
   storeOrHomePhoto String?    // รูปถ่ายหน้าร้าน/หน้าบ้าน
+  idCardPhoto     String?     // รูปถ่ายบัตรประชาชน
   creditGrade     CreditGrade @default(NEW)
   creditLimit     Float       @default(2000.0) // SQLite Float สำหรับตัวเลขเงิน
   completedCycles Int         @default(0)
@@ -152,6 +156,7 @@ model Payment {
   ocrRawText          String?
   paidAt              DateTime                  @default(now())
   verifiedBy          String?
+  collectedBy         String?
   notes               String?
 }
 

@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { DB_BASE64 } from "./db-base64";
+import { ensureSafeMigrations } from "./db-migrate";
 
 const BLOB_FILENAME = "loan_tracker_db.sqlite";
 const TMP_DB_PATH = path.join("/tmp", "prod.db");
@@ -23,6 +24,7 @@ export async function syncDbFromBlob(force: boolean = false): Promise<void> {
         console.error("Local DB initialization error:", e);
       }
     }
+    await ensureSafeMigrations().catch(() => {});
     return;
   }
 
@@ -115,6 +117,8 @@ export async function syncDbFromBlob(force: boolean = false): Promise<void> {
         console.error("Failed fallback DB creation:", e);
       }
     }
+  } finally {
+    await ensureSafeMigrations().catch(() => {});
   }
 }
 

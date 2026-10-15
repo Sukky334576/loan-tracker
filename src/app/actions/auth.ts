@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
+import { logAudit } from "@/lib/audit";
 
 export interface SessionUser {
   id: string;
@@ -123,6 +124,16 @@ export async function loginAction(params: {
       });
     } catch (cookieErr) {
       // Safely ignore if invoked outside active request scope
+    }
+
+    try {
+      await logAudit(targetUser.id, "LOGIN", targetUser.id, {
+        username: targetUser.username,
+        role: targetUser.role,
+        name: targetUser.name,
+      });
+    } catch {
+      // ignore
     }
 
     safeRevalidate("/");

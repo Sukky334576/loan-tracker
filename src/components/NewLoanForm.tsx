@@ -3,11 +3,12 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createLoanAction } from "@/app/actions/loans";
-import { createBorrowerAction } from "@/app/actions/borrowers";
+import { createBorrowerAction, checkBorrowerRiskAction } from "@/app/actions/borrowers";
 import { 
   Calculator, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
   Loader2, 
   FileText, 
   UserCheck, 
@@ -22,7 +23,9 @@ import {
   Phone,
   Briefcase,
   MapPin,
-  Wallet
+  Wallet,
+  ExternalLink,
+  Lock
 } from "lucide-react";
 import Link from "next/link";
 import { QuickAddBorrowerModal, CreatedBorrower } from "@/components/QuickAddBorrowerModal";
@@ -41,9 +44,10 @@ export interface BorrowerOption {
 interface NewLoanFormProps {
   borrowers: BorrowerOption[];
   cashBalance?: number;
+  userRole?: "OWNER" | "AGENT";
 }
 
-export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
+export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: NewLoanFormProps) {
   const router = useRouter();
 
   // Mode: Existing Borrower vs Walk-in New Borrower
@@ -87,13 +91,63 @@ export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Risk & Duplicate check states
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    id: string;
+    fullName: string;
+    citizenId: string;
+    phone: string;
+    reason: string;
+  } | null>(null);
+
+  const [crossGuarantorWarning, setCrossGuarantorWarning] = useState<string | null>(null);
+
   const selectedBorrower = borrowerList.find((b) => b.id === selectedBorrowerId);
+
+  const isAgent = userRole === "AGENT";
+  const isSelectedBorrowerLocked =
+    borrowerMode === "EXISTING" &&
+    isAgent &&
+    (selectedBorrower?.creditGrade === "BLACKLIST" || selectedBorrower?.creditGrade === "WATCHLIST");
+
+  // Debounced risk check
+  React.useEffect(() => {
+    const timer = setTimeout(async () => {
+      const citizenIdToCheck = borrowerMode === "WALKIN" ? walkinCitizenId : undefined;
+      const phoneToCheck = borrowerMode === "WALKIN" ? walkinPhone : undefined;
+      const guarantorPhoneToCheck = contractType === "GUARANTEED" ? guarantorPhone : undefined;
+
+      if (
+        (citizenIdToCheck && citizenIdToCheck.length >= 10) ||
+        (phoneToCheck && phoneToCheck.length >= 9) ||
+        (guarantorPhoneToCheck && guarantorPhoneToCheck.length >= 9)
+      ) {
+        const res = await checkBorrowerRiskAction({
+          citizenId: citizenIdToCheck,
+          phone: phoneToCheck,
+          guarantorPhone: guarantorPhoneToCheck,
+        });
+
+        if (res.success) {
+          setDuplicateWarning(res.duplicateBorrower ?? null);
+          setCrossGuarantorWarning(res.crossGuarantorAlert?.warningMessage ?? null);
+        }
+      } else {
+        setDuplicateWarning(null);
+        setCrossGuarantorWarning(null);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [borrowerMode, walkinCitizenId, walkinPhone, contractType, guarantorPhone]);
 
   // Reset state when switching borrower tabs
   const handleModeChange = (mode: "EXISTING" | "WALKIN") => {
     setBorrowerMode(mode);
     setErrorMsg(null);
     setFieldErrors({});
+    setDuplicateWarning(null);
+    setCrossGuarantorWarning(null);
 
     if (mode === "WALKIN") {
       setSelectedBorrowerId("");
@@ -194,6 +248,10 @@ export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
 
     if (contractType === "GUARANTEED" && !guarantorName.trim()) {
       errors.guarantorName = "กรุณาระบุชื่อ-นามสกุลของผู้รับรอง / ผู้ค้ำประกัน";
+    }
+
+    if (isSelectedBorrowerLocked) {
+      errors.borrower = `ลูกหนี้ติดสถานะ ${selectedBorrower?.creditGrade} — สายตรวจ (Agent) ไม่มีสิทธิ์เปิดสัญญา (สงวนสิทธิ์เฉพาะนายทุนเท่านั้น)`;
     }
 
     setFieldErrors(errors);
@@ -364,6 +422,13 @@ export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
                 />
               </div>
             </div>
+
+            {crossGuarantorWarning && (
+              <div className="rounded-lg border border-rose-300 bg-rose-50 p-2.5 text-xs text-rose-900 flex items-start gap-2">
+                <AlertCircle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+                <span className="font-medium">{crossGuarantorWarning}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -459,25 +524,54 @@ export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
             )}
 
             {selectedBorrower && (
-              <div className="mt-2.5 flex items-center justify-between border-t border-zinc-150 pt-2 text-[11px] text-zinc-500">
-                <span>
-                  วงเงินทั้งหมด:{" "}
-                  <strong className="text-zinc-800">
-                    {selectedBorrower.creditLimit.toLocaleString()} ฿
-                  </strong>
-                </span>
-                <span>
-                  คงเหลือปล่อยได้:{" "}
-                  <strong
-                    className={
-                      selectedBorrower.availableCredit > 0
-                        ? "text-emerald-700 font-bold"
-                        : "text-rose-700 font-bold"
-                    }
-                  >
-                    {selectedBorrower.availableCredit.toLocaleString()} ฿
-                  </strong>
-                </span>
+              <div className="mt-2.5 border-t border-zinc-150 pt-2 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                  <span>
+                    วงเงินทั้งหมด:{" "}
+                    <strong className="text-zinc-800">
+                      {selectedBorrower.creditLimit.toLocaleString()} ฿
+                    </strong>
+                  </span>
+                  <span>
+                    คงเหลือปล่อยได้:{" "}
+                    <strong
+                      className={
+                        selectedBorrower.availableCredit > 0
+                          ? "text-emerald-700 font-bold"
+                          : "text-rose-700 font-bold"
+                      }
+                    >
+                      {selectedBorrower.availableCredit.toLocaleString()} ฿
+                    </strong>
+                  </span>
+                </div>
+
+                {/* Prominent Watchlist / Blacklist Warning & Lock */}
+                {(selectedBorrower.creditGrade === "WATCHLIST" || selectedBorrower.creditGrade === "BLACKLIST") && (
+                  <div className={`rounded-xl border p-3 text-xs flex items-start gap-2.5 ${
+                    selectedBorrower.creditGrade === "BLACKLIST"
+                      ? "border-rose-300 bg-rose-50 text-rose-900"
+                      : "border-amber-300 bg-amber-50 text-amber-900"
+                  }`}>
+                    {isSelectedBorrowerLocked ? (
+                      <Lock className="size-4 shrink-0 text-rose-600 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                    )}
+                    <div>
+                      <p className="font-bold">
+                        {isSelectedBorrowerLocked
+                          ? `🔒 ล็อกสิทธิ์ปล่อยกู้ (ติดสถานะ ${selectedBorrower.creditGrade})`
+                          : `⚠️ คำเตือนความเสี่ยง (สถานะ ${selectedBorrower.creditGrade})`}
+                      </p>
+                      <p className="text-[11px] mt-0.5">
+                        {isSelectedBorrowerLocked
+                          ? `ลูกหนี้ติดสถานะ ${selectedBorrower.creditGrade} ไม่อนุญาตให้สายตรวจ (Agent) ปล่อยกู้ สงวนสิทธิ์เฉพาะนายทุน (Owner) เท่านั้น`
+                          : `ลูกหนี้ติดสถานะ ${selectedBorrower.creditGrade} นายทุนสามารถพิจารณาอนุมัติเป็นกรณีพิเศษได้`}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -492,6 +586,36 @@ export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
                 กรอกข้อมูลผู้กู้ใหม่ตรงนี้ ระบบจะบันทึกลงฐานข้อมูลและสร้างสัญญาให้ในขั้นตอนเดียว
               </p>
             </div>
+
+            {/* Live Duplicate Warning Alert in Walk-in */}
+            {duplicateWarning && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-bold">⚠️ ตรวจพบข้อมูลซ้ำ: {duplicateWarning.reason}</p>
+                    <p className="text-[11px] text-zinc-700 mt-0.5">
+                      ตรงกับ: <strong>{duplicateWarning.fullName}</strong> ({duplicateWarning.phone})
+                    </p>
+                    <Link
+                      href={`/borrowers/${duplicateWarning.id}`}
+                      className="mt-1 inline-flex items-center gap-1 font-bold text-blue-700 hover:underline"
+                    >
+                      <span>คลิกเพื่อดูโปรไฟล์ลูกหนี้รายเดิมนี้</span>
+                      <ExternalLink className="size-3" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Live Cross-Guarantor Warning in Walk-in */}
+            {crossGuarantorWarning && (
+              <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 flex items-start gap-2">
+                <AlertCircle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+                <span className="font-medium">{crossGuarantorWarning}</span>
+              </div>
+            )}
 
             <div>
               <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
@@ -920,7 +1044,12 @@ export function NewLoanForm({ borrowers, cashBalance = 0 }: NewLoanFormProps) {
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={isSubmitting || Boolean(isExceedingCredit) || Boolean(isCashInsufficient)}
+        disabled={
+          isSubmitting ||
+          Boolean(isExceedingCredit) ||
+          Boolean(isCashInsufficient) ||
+          Boolean(isSelectedBorrowerLocked)
+        }
         className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-bold text-white shadow-md transition-all hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50 select-none cursor-pointer"
       >
         {isSubmitting ? (

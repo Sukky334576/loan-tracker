@@ -49,13 +49,32 @@ export async function getDashboardData() {
       }
     }
 
+    // Auto tier calculation based on cycles and overdue days
+    let effectiveCreditGrade = (loan.borrower.creditGrade as string) || "NEW";
+    if (loan.borrower.creditGrade === "BLACKLIST") {
+      effectiveCreditGrade = "BLACKLIST";
+    } else if (status !== "SETTLED" && status !== "BAD_DEBT" && daysDiff < 0) {
+      if (daysDiff < -3) {
+        effectiveCreditGrade = "BLACKLIST";
+      } else {
+        effectiveCreditGrade = "WATCHLIST";
+      }
+    } else {
+      if (loan.borrower.completedCycles >= 6) {
+        effectiveCreditGrade = "VIP";
+      } else if (loan.borrower.completedCycles >= 3) {
+        effectiveCreditGrade = "GOOD";
+      }
+    }
+
     return {
       id: loan.id,
       borrowerName: loan.borrower.fullName,
+      nickname: (loan.borrower as any).nickname || null,
       phone: loan.borrower.phone,
       workplace: loan.borrower.workplace,
       facebookUrl: loan.borrower.facebookUrl,
-      creditGrade: loan.borrower.creditGrade as "NEW" | "GOOD" | "BLACKLIST",
+      creditGrade: effectiveCreditGrade as "NEW" | "GOOD" | "VIP" | "WATCHLIST" | "BLACKLIST",
       remainingPrincipal: loan.remainingPrincipal,
       termType: loan.termType as "DAYS_7" | "DAYS_10" | "CUSTOM",
       interestRate: loan.interestRate,

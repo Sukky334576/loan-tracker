@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
 import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
 
+import { getSession } from "@/app/actions/auth";
+
 export interface RecordPaymentInput {
   loanId: string;
   payType: "INTEREST" | "PRINCIPAL_CUT" | "SETTLE";
@@ -15,6 +17,10 @@ export interface RecordPaymentInput {
 export async function recordPaymentAction(input: RecordPaymentInput) {
   try {
     await syncDbFromBlob(true);
+
+    const session = await getSession();
+    const actorUsername = session?.username || "agent1";
+    const actorUserId = session?.id;
 
     const { loanId, payType, amountPaid, notes, slipUrl } = input;
 
@@ -99,6 +105,8 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
           slipUrl: slipUrl ?? "/slip-placeholder.png",
           verificationStatus: "VERIFIED",
           paidAt: new Date(),
+          verifiedBy: actorUsername,
+          collectedBy: actorUsername,
           notes: notes ?? (isSettlement ? "ปิดยอดสัญญาเรียบร้อย" : `ตัดดอกรอบที่ ${loan.rolloverCount + 1}`),
         },
       });
@@ -117,12 +125,31 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
         },
       });
 
-      // Update Borrower completed cycles if settled
+      // Update Borrower completed cycles and auto tier progression if settled
       if (isSettlement) {
+        const currentBorrower = await tx.borrower.findUnique({
+          where: { id: loan.borrowerId },
+        });
+        const newCycles = (currentBorrower?.completedCycles || 0) + 1;
+        let newGrade = currentBorrower?.creditGrade || "NEW";
+        let newLimit = currentBorrower?.creditLimit || 2000;
+
+        if (newGrade !== "BLACKLIST") {
+          if (newCycles >= 6) {
+            newGrade = "VIP";
+            newLimit = Math.max(newLimit, 10000);
+          } else if (newCycles >= 3) {
+            newGrade = "GOOD";
+            newLimit = Math.max(newLimit, 5000);
+          }
+        }
+
         await tx.borrower.update({
           where: { id: loan.borrowerId },
           data: {
-            completedCycles: { increment: 1 },
+            completedCycles: newCycles,
+            creditGrade: newGrade as any,
+            creditLimit: newLimit,
           },
         });
       }
@@ -134,23 +161,26 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
           amount: amountPaid,
           referenceId: loan.id,
           description: isSettlement
-            ? `รับปิดยอดสัญญา ${loan.borrower.fullName} (${amountPaid.toLocaleString()} ฿)`
-            : `รับชำระดอกเบี้ย/โปะต้น ${loan.borrower.fullName} (${amountPaid.toLocaleString()} ฿)`,
+            ? `รับปิดยอดสัญญา ${loan.borrower.fullName} โดย ${actorUsername} (${amountPaid.toLocaleString()} ฿)`
+            : `รับชำระดอกเบี้ย/โปะต้น ${loan.borrower.fullName} โดย ${actorUsername} (${amountPaid.toLocaleString()} ฿)`,
         },
       });
 
       // Audit Log
       await tx.auditLog.create({
         data: {
-          userId: loan.agentId,
-          action: isSettlement ? "SETTLE_LOAN" : "PAYMENT_RECEIVED",
-          targetId: loan.id,
+          userId: actorUserId || loan.agentId,
+          action: "PAYMENT_COLLECT",
+          targetId: payment.id,
           details: JSON.stringify({
+            collector: actorUsername,
+            borrowerName: loan.borrower.fullName,
             amountPaid,
             principalCut,
             currentInterestPaid,
             penaltyPaid,
             remainingPrincipal: newRemainingPrincipal,
+            isSettlement,
           }),
         },
       });

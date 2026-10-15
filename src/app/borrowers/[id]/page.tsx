@@ -50,6 +50,7 @@ export default async function BorrowerDetailPage({ params }: Props) {
         id: borrower.id,
         citizenId: borrower.citizenId,
         fullName: borrower.fullName,
+        nickname: borrower.nickname,
         phone: borrower.phone,
         workplace: borrower.workplace,
         addressOnCard: borrower.addressOnCard,
@@ -61,6 +62,8 @@ export default async function BorrowerDetailPage({ params }: Props) {
         createdAt: borrower.createdAt.toISOString(),
         guarantorName: borrower.guarantorName,
         guarantorPhone: borrower.guarantorPhone,
+        idCardPhoto: borrower.idCardPhoto,
+        storeOrHomePhoto: borrower.storeOrHomePhoto,
         activePrincipal,
         availableCredit,
         loans: borrower.loans.map((l) => ({
@@ -77,6 +80,13 @@ export default async function BorrowerDetailPage({ params }: Props) {
           closedAt: l.closedAt?.toISOString() ?? null,
           paymentsCount: l.payments.length,
           totalPaid: l.payments.reduce((s, p) => s + p.amountPaid, 0),
+          payments: l.payments.map((p) => ({
+            id: p.id,
+            amountPaid: p.amountPaid,
+            paidAt: p.paidAt.toISOString(),
+            slipUrl: p.slipUrl,
+            paymentType: p.paymentType,
+          })),
         })),
       }}
       userRole={session?.role ?? "OWNER"}

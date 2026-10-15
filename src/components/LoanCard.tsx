@@ -11,16 +11,19 @@ import {
   Check,
   CheckCircle2,
   Trash2,
-  FileText
+  FileText,
+  AlertTriangle
 } from "lucide-react";
+import { formatLineReminderText } from "@/lib/line-reminder";
 
 export interface LoanCardData {
   id: string;
   borrowerName: string;
+  nickname?: string | null;
   phone: string;
   workplace?: string | null;
   facebookUrl?: string | null;
-  creditGrade: "NEW" | "GOOD" | "BLACKLIST";
+  creditGrade: "NEW" | "GOOD" | "VIP" | "WATCHLIST" | "BLACKLIST";
   remainingPrincipal: number;
   termType: "DAYS_7" | "DAYS_10" | "CUSTOM";
   interestRate: number;
@@ -36,12 +39,16 @@ interface LoanCardProps {
   loan: LoanCardData;
   onPaymentClick?: (loanId: string) => void;
   onDeleteClick?: (loan: LoanCardData) => void;
+  onBadDebtClick?: (loan: LoanCardData) => void;
+  userRole?: "OWNER" | "AGENT";
 }
 
-export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps) {
+export function LoanCard(props: LoanCardProps) {
+  const { loan, onPaymentClick, onDeleteClick, onBadDebtClick, userRole = "OWNER" } = props;
   const [copied, setCopied] = useState(false);
 
   const isSettled = loan.status === "SETTLED";
+  const isBadDebt = loan.status === "BAD_DEBT";
 
   // คำนวณดอกเบี้ยรอบปัจจุบัน
   const cycleInterest = loan.remainingPrincipal * loan.interestRate;
@@ -52,26 +59,19 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
   // ยอดปิดสัญญาเต็มจำนวน
   const totalSettlement = totalDueForRollover + loan.remainingPrincipal;
 
-  // ฟังก์ชัน 1-Click คัดลอกบิลส่ง LINE
+  // ฟังก์ชัน 1-Click คัดลอกข้อความแจ้งยอดส่ง LINE
   const handleCopyBill = async () => {
-    const dueDateFormatted = new Date(loan.currentDueDate).toLocaleDateString("th-TH", {
-      day: "numeric",
-      month: "short",
+    const billText = formatLineReminderText({
+      borrowerName: loan.borrowerName,
+      nickname: loan.nickname,
+      remainingPrincipal: loan.remainingPrincipal,
+      cycleInterest,
+      penaltyAccrued: loan.penaltyAccrued,
+      accruedInterest: loan.accruedInterest,
+      currentDueDate: loan.currentDueDate,
+      daysDiff: loan.daysDiff,
+      status: loan.status,
     });
-
-    const billText = `📢 แจ้งเตือนยอดชำระเงินกู้\n` +
-      `👤 ลูกหนี้: ${loan.borrowerName}\n` +
-      `📅 กำหนดชำระ: ${dueDateFormatted}\n` +
-      `💰 เงินต้นคงเหลือ: ${loan.remainingPrincipal.toLocaleString()} บาท\n` +
-      (loan.penaltyAccrued > 0 ? `⚠️ ค่าปรับค้างชำระ: ${loan.penaltyAccrued.toFixed(2)} บาท\n` : "") +
-      `📌 ยอดตัดดอกรอบนี้: ${totalDueForRollover.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท\n` +
-      `🏁 ยอดปิดสัญญาทั้งหมด: ${totalSettlement.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท\n` +
-      `-------------------------\n` +
-      `🏦 บัญชีรับโอน: ธ.กรุงเทพ (BBL)\n` +
-      `🔢 เลขบัญชี: 546-7-396726\n` +
-      `👤 ชื่อบัญชี: น.ส.ฟิลิปดา ฤือปัญญา\n` +
-      `-------------------------\n` +
-      `*โอนแล้วรบกวนส่งสลิปเพื่อตัดยอดในระบบครับ*`;
 
     try {
       await navigator.clipboard.writeText(billText);
@@ -86,6 +86,8 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
     <div className={`group relative overflow-hidden rounded-2xl border p-4.5 shadow-xs transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-md ${
       isSettled 
         ? "border-emerald-200 bg-emerald-50/20" 
+        : isBadDebt
+        ? "border-rose-200 bg-rose-50/20"
         : "border-zinc-200/90 bg-white hover:border-zinc-300"
     }`}>
       {/* Top Bar: Borrower Info, Status Badge & Delete Button */}
@@ -98,14 +100,21 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
               title="ดู/พิมพ์สัญญาฉบับเต็ม"
             >
               <span>{loan.borrowerName}</span>
+              {loan.nickname && (
+                <span className="text-xs font-normal text-zinc-500">({loan.nickname})</span>
+              )}
               <FileText className="size-3 text-zinc-400 group-hover/name:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </Link>
             <span
               className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-transform duration-150 group-hover:scale-105 ${
-                loan.creditGrade === "GOOD"
+                loan.creditGrade === "VIP"
+                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                  : loan.creditGrade === "GOOD"
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : loan.creditGrade === "WATCHLIST"
+                  ? "bg-amber-50 text-amber-800 border border-amber-300 font-extrabold"
                   : loan.creditGrade === "BLACKLIST"
-                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                  ? "bg-rose-50 text-rose-700 border border-rose-200 font-extrabold"
                   : "bg-zinc-100 text-zinc-700 border border-zinc-200"
               }`}
             >
@@ -265,23 +274,23 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
           type="button"
           onClick={handleCopyBill}
           className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 text-xs font-semibold text-emerald-800 transition-all duration-150 hover:bg-emerald-100 hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-2xs active:translate-y-0 active:scale-95 cursor-pointer"
-          title="คัดลอกบิลส่ง LINE"
+          title="คัดลอกข้อความแจ้งยอดส่ง LINE"
         >
           {copied ? (
             <>
               <Check className="size-3.5 text-emerald-700" />
-              <span className="text-emerald-700">คัดลอกแล้ว</span>
+              <span className="text-emerald-700 font-bold">คัดลอกแล้ว!</span>
             </>
           ) : (
             <>
               <MessageCircle className="size-3.5 text-emerald-600" />
-              <span>บิล LINE</span>
+              <span>📋 แจ้งยอด LINE</span>
             </>
           )}
         </button>
 
         {/* Repayment or Settled Action */}
-        {!isSettled ? (
+        {!isSettled && !isBadDebt ? (
           <button
             type="button"
             onClick={() => onPaymentClick?.(loan.id)}
@@ -290,6 +299,10 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
             <span>รับเงิน</span>
             <ArrowUpRight className="size-3.5" />
           </button>
+        ) : isBadDebt ? (
+          <div className="flex h-10 items-center justify-center gap-1 rounded-xl bg-rose-100 text-xs font-bold text-rose-800 border border-rose-300 select-none cursor-default">
+            <span>หนี้สูญ</span>
+          </div>
         ) : (
           <div className="flex h-10 items-center justify-center gap-1 rounded-xl bg-emerald-100 text-xs font-bold text-emerald-800 border border-emerald-300 select-none cursor-default">
             <CheckCircle2 className="size-3.5 text-emerald-600" />
@@ -297,6 +310,20 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
           </div>
         )}
       </div>
+
+      {/* Bad Debt Write-Off Option for Owner on Overdue Loans */}
+      {userRole === "OWNER" && (loan.status === "OVERDUE" || loan.daysDiff < 0) && !isSettled && !isBadDebt && onBadDebtClick && (
+        <div className="mt-2.5 flex items-center justify-end border-t border-zinc-150 pt-2">
+          <button
+            type="button"
+            onClick={() => onBadDebtClick(loan)}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+          >
+            <AlertTriangle className="size-3 text-rose-600" />
+            <span>ตัดจำหน่ายเป็นหนี้สูญ (Bad Debt)</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,9 +11,12 @@ import {
   PlusCircle, 
   Wallet, 
   History,
-  LogOut
+  LogOut,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
+import { usePrivacyMode } from "@/lib/privacy";
 
 interface HeaderProps {
   currentRole: "OWNER" | "AGENT";
@@ -25,6 +28,7 @@ export function Header({ currentRole, userName }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { isPrivacy, togglePrivacy } = usePrivacyMode();
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -107,6 +111,20 @@ export function Header({ currentRole, userName }: HeaderProps) {
 
         {/* Right: Role Badge & Logout Button */}
         <div className="flex items-center gap-2">
+          {/* Privacy Mode Toggle */}
+          <button
+            type="button"
+            onClick={togglePrivacy}
+            title={isPrivacy ? "ปิดโหมดซ่อนยอดเงิน (แสดงตัวเลข)" : "เปิดโหมดซ่อนยอดเงิน (Privacy Mode)"}
+            className={`flex size-7.5 items-center justify-center rounded-full border transition-all duration-150 active:scale-95 cursor-pointer shadow-2xs select-none ${
+              isPrivacy
+                ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+            }`}
+          >
+            {isPrivacy ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+          </button>
+
           {/* User/Role Badge */}
           <div className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
             {currentRole === "OWNER" ? (

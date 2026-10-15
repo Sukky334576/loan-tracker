@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { exportToCsv } from "@/lib/export-csv";
+import { usePrivacyMode, formatPrivateAmount } from "@/lib/privacy";
 
 interface DashboardClientProps {
   initialLoans: LoanCardData[];
@@ -41,6 +42,7 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter();
   const { role } = useRole();
+  const { isPrivacy } = usePrivacyMode();
 
   const [loans, setLoans] = useState<LoanCardData[]>(initialLoans);
   const [metrics, setMetrics] = useState(initialMetrics);
@@ -253,7 +255,7 @@ export function DashboardClient({
                 <TrendingUp className="size-4 text-emerald-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-zinc-900">
-                {metrics.totalPrincipalInMarket.toLocaleString()} ฿
+                {formatPrivateAmount(metrics.totalPrincipalInMarket, isPrivacy)}
               </p>
               <span className="text-[11px] text-zinc-400">
                 {activeLoans.length} สัญญากำลังหมุนเวียน
@@ -267,7 +269,7 @@ export function DashboardClient({
                 <Wallet className="size-4 text-blue-600" />
               </div>
               <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-blue-700">
-                {metrics.cashBalance.toLocaleString()} ฿
+                {formatPrivateAmount(metrics.cashBalance, isPrivacy)}
               </p>
               <div className="mt-1 flex items-center justify-between">
                 <span className="text-[11px] text-zinc-400">พร้อมเบิกปล่อยกู้</span>

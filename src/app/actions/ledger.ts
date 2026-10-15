@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
 import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
 import { getSession } from "@/app/actions/auth";
+import { logAudit } from "@/lib/audit";
 
 export async function addCapitalAction(params: {
   amount: number;
@@ -34,6 +35,12 @@ export async function addCapitalAction(params: {
         amount: Number(amount),
         description: description?.trim() || defaultDesc,
       },
+    });
+
+    await logAudit(session?.id || "farafull", "LEDGER_ADJUST", "LEDGER", {
+      action: type,
+      amount: Number(amount),
+      description: description?.trim() || defaultDesc,
     });
 
     await saveDbToBlob();
@@ -99,6 +106,13 @@ export async function setFundBalanceAction(params: {
       });
     }
 
+    await logAudit(session?.id || "farafull", "LEDGER_ADJUST", "LEDGER", {
+      action: "SET_BALANCE",
+      targetAmount,
+      difference,
+      description: description?.trim() || `ปรับปรุงยอดเงินกองกลางตั้งต้นเป็น ${targetAmount.toLocaleString()} ฿`,
+    });
+
     await saveDbToBlob();
 
     safeRevalidate("/");
@@ -144,6 +158,11 @@ export async function resetDatabaseToProductionAction(params?: {
           },
         });
       }
+    });
+
+    await logAudit(session?.id || "farafull", "DB_RESET", "SYSTEM", {
+      initialCapital,
+      resetBy: session?.username || "farafull",
     });
 
     await saveDbToBlob();

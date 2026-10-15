@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { LoanCardData } from "@/components/LoanCard";
 import { recordPaymentAction } from "@/app/actions/payments";
+import { compressImageToDataUrl } from "@/lib/image-compress";
 
 export interface PaymentSuccessResult {
   loanId: string;
@@ -60,6 +61,7 @@ export function RepaymentDrawer({
   const [customAmount, setCustomAmount] = useState<string>("");
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [slipBase64, setSlipBase64] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptDetails | null>(null);
@@ -75,6 +77,7 @@ export function RepaymentDrawer({
       setErrorMessage(null);
       setSlipFile(null);
       setSlipPreview(null);
+      setSlipBase64(null);
     }
     return () => {
       document.body.style.overflow = "";
@@ -95,12 +98,18 @@ export function RepaymentDrawer({
       ? fullSettlementDue
       : Number(customAmount) || minInterestDue;
 
-  // Handle image select
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image select & compression
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSlipFile(file);
       setSlipPreview(URL.createObjectURL(file));
+      try {
+        const compressed = await compressImageToDataUrl(file, 1000, 1000, 0.7);
+        setSlipBase64(compressed);
+      } catch (err) {
+        console.warn("Slip compression fallback to raw data URL:", err);
+      }
     }
   };
 
@@ -113,6 +122,7 @@ export function RepaymentDrawer({
       loanId: loan.id,
       payType,
       amountPaid: currentAmount,
+      slipUrl: slipBase64 || undefined,
       notes: isSettlement
         ? "ปิดยอดสัญญาเรียบร้อย"
         : payType === "PRINCIPAL_CUT"
