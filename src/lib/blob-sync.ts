@@ -118,7 +118,11 @@ export async function syncDbFromBlob(force: boolean = false): Promise<void> {
       }
     }
   } finally {
-    await ensureSafeMigrations().catch(() => {});
+    const migrated = await ensureSafeMigrations().catch(() => false);
+    if (migrated && process.env.VERCEL) {
+      console.log("Database schema was migrated, auto-saving to Vercel Blob...");
+      await saveDbToBlob().catch(() => {});
+    }
   }
 }
 
