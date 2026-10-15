@@ -23,7 +23,7 @@ export interface CreateLoanInput {
 
 export async function createLoanAction(input: CreateLoanInput) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const {
       borrowerId,
@@ -203,6 +203,7 @@ export async function createLoanAction(input: CreateLoanInput) {
     safeRevalidate("/");
     safeRevalidate("/borrowers");
     safeRevalidate("/ledger");
+    safeRevalidate(`/loans/${result.id}/contract`);
     return { success: true, loanId: result.id };
   } catch (error: any) {
     console.error("Create loan error:", error);
@@ -212,7 +213,7 @@ export async function createLoanAction(input: CreateLoanInput) {
 
 export async function deleteLoanAction(loanId: string) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     if (!loanId) {
       return { success: false, error: "ไม่พบรหัสสัญญาเงินกู้" };

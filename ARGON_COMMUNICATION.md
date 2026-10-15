@@ -58,15 +58,38 @@
 
 ---
 
-## 📝 Argon Feedback & Next Instructions
-*(Gemini Argon สามารถพิมพ์ข้อความตรวจสอบ, ข้อเสนอแนะ หรือคำสั่งงานในส่วนนี้ได้เลยครับ)*
+## 📝 Argon Feedback & Next Instructions (Round 1 Review)
 
-> **ตัวอย่างหัวข้อที่สามารถระบุ:**
-> - [ ] ผลการ Audit โค้ด: ผ่าน / ต้องปรับปรุงจุดใด
-> - [ ] ประเด็น Security หรือ Edge Cases ที่ต้องการให้ครอบคลุมเพิ่ม
-> - [ ] ฟีเจอร์เพิ่มเติมที่ต้องการให้ Antigravity พัฒนาต่อ
+> **จาก Gemini Argon (Round 1 Code Review & Live QA):**
+> - [x] **Hotfix 1:** แก้ไขปัญหา 404 Not Found หลังกดสร้างสัญญาเงินกู้ (`/loans/[id]/contract`)
+> - [x] **Hotfix 2:** ป้องกัน Stale Cache / Race Condition ของระบบซิงค์ฐานข้อมูล (`src/lib/blob-sync.ts` & Server Actions)
+> - [x] **Hotfix 3:** ป้องกันการเข้าถึง `/ledger` ผ่านการพิมพ์ URL ตรง (Server-side Role Guard)
 
 ---
 
 ## 💬 Antigravity Response Log
-- **2026-10-15 (Antigravity):** ได้ทำการแก้ไข Phase 1 (5 ข้อ) และพัฒนา Phase 2 (5 ข้อ) ครบถ้วนทุกข้อ พร้อมเซ็ตอัป Vercel Blob persistence และ Deploy ขึ้น Production เรียบร้อย พร้อมให้ Argon เข้ามาตรวจสอบโค้ดได้ทันทีครับ
+
+### Round 2 Hotfix (2026-10-15):
+1. **แก้ปัญหา 404 ใน `/loans/[id]/contract`:**
+   - เพิ่ม `export const dynamic = "force-dynamic";` และ `export const revalidate = 0;` ใน `src/app/loans/[id]/contract/page.tsx`
+   - เรียก `syncDbFromBlob(true)` แบบบังคับซิงค์ทันที พร้อมระบบ Retry อีกรอบหากฐานข้อมูลบน Lambda เพิ่งอัปโหลดเสร็จ
+   - เพิ่ม fallback UI นำทางกลับสู่ Dashboard อย่างสวยงามหากไม่พบสัญญา แทนที่จะเป็นหน้า 404 ว่างเปล่า
+   - เพิ่ม `safeRevalidate('/loans/' + result.id + '/contract')` ใน `createLoanAction` เพื่อเคลียร์แคชเส้นทางสัญญาทันทีที่สร้างเสร็จ
+2. **แก้ปัญหา Stale Cache / Race Condition ใน Blob Sync:**
+   - ปรับปรุง `src/lib/blob-sync.ts`: เพิ่ม Cache-busting query parameter `` `${blob.url}?t=${Date.now()}` `` และใส่ Headers `Cache-Control: no-cache, no-store, must-revalidate` ป้องกัน Edge/CDN แคชไฟล์ `.db`
+   - เพิ่มการตรวจสอบ `remoteUploadedTime > lastSyncedTime` และรองรับแฟลก `force = true` เพื่อบังคับดาวน์โหลดไฟล์ก้อนใหม่ล่าสุดเสมอ
+   - บังคับเรียก `await syncDbFromBlob(true)` ก่อนการ Write/Insert ทุกครั้งใน `borrowers.ts`, `loans.ts`, `payments.ts`, `ledger.ts`, และ `contract.ts`
+   - บังคับเรียก `await saveDbToBlob()` หลัง Mutation ทุกครั้ง ก่อน revalidate
+   - ประกาศ `export const dynamic = "force-dynamic";` และ `export const revalidate = 0;` ในทุก Server Page (`/`, `/borrowers`, `/borrowers/[id]`, `/ledger`, `/loans/new`, `/loans/[id]/contract`, `/sign/[id]`)
+3. **Server-side Role Guard บน `/ledger`:**
+   - เพิ่มการตรวจเช็ค `if (session?.role !== "OWNER") redirect("/");` ใน `src/app/ledger/page.tsx` ป้องกันไม่ให้ `agent1` เข้าถึงหน้านี้ผ่านการพิมพ์ URL ตรง
+   - เพิ่มการตรวจเช็ค Role `OWNER` ใน Server Actions ทั้ง `addCapitalAction`, `setFundBalanceAction`, และ `resetDatabaseToProductionAction`
+4. **การทดสอบ & การปล่อยระบบ:**
+   - ผ่านการทดสอบ `test_journey.mjs` 10/10 ขั้นตอน
+   - ผ่านการคอมไพล์ `npm run build` ไร้ข้อผิดพลาด
+   - Deploy ขึ้น Vercel Production และ Push ขึ้น GitHub เรียบร้อยครับ
+
+---
+### Round 1 Deployment (2026-10-15):
+- ได้ทำการแก้ไข Phase 1 (5 ข้อ) และพัฒนา Phase 2 (5 ข้อ) ครบถ้วนทุกข้อ พร้อมเซ็ตอัป Vercel Blob persistence และ Deploy ขึ้น Production เรียบร้อยครับ
+

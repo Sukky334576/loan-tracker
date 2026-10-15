@@ -11,7 +11,12 @@ export async function addCapitalAction(params: {
   description?: string;
 }) {
   try {
-    await syncDbFromBlob();
+    const session = await getSession();
+    if (session && session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการจัดการเงินกองกลาง" };
+    }
+
+    await syncDbFromBlob(true);
     const { amount, type = "CAPITAL_INJECTION", description } = params;
 
     if (!amount || amount <= 0) {
@@ -53,7 +58,7 @@ export async function setFundBalanceAction(params: {
       return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการปรับยอดกองกลาง" };
     }
 
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const { targetAmount, description } = params;
 
@@ -115,7 +120,7 @@ export async function resetDatabaseToProductionAction(params?: {
       return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการล้างข้อมูลระบบ" };
     }
 
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const initialCapital = params?.initialCapital ? Number(params.initialCapital) : 0;
 

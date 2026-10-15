@@ -3,9 +3,10 @@ import { NewLoanForm } from "@/components/NewLoanForm";
 import { syncDbFromBlob } from "@/lib/blob-sync";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function NewLoanPage() {
-  await syncDbFromBlob();
+  await syncDbFromBlob(true);
 
   const [borrowers, ledgerEntries] = await Promise.all([
     prisma.borrower.findMany({

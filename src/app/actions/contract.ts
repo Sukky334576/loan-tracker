@@ -10,7 +10,7 @@ export async function saveSignatureAction(params: {
   signatureDataUrl: string;
 }) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
     const { loanId, role, signatureDataUrl } = params;
 
     if (!loanId || !signatureDataUrl) {
@@ -72,7 +72,7 @@ export async function clearSignatureAction(params: {
   role: "borrower" | "guarantor";
 }) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const { loanId, role } = params;
 

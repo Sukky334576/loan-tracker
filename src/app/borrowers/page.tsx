@@ -3,9 +3,10 @@ import { BorrowersClient, BorrowerItem } from "@/components/BorrowersClient";
 import { syncDbFromBlob } from "@/lib/blob-sync";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function BorrowersPage() {
-  await syncDbFromBlob();
+  await syncDbFromBlob(true);
 
   const borrowers = await prisma.borrower.findMany({
     where: { deletedAt: null },

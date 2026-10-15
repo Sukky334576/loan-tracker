@@ -34,7 +34,7 @@ export interface UpdateBorrowerInput {
 
 export async function createBorrowerAction(input: CreateBorrowerInput) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const {
       citizenId,
@@ -103,7 +103,7 @@ export async function createBorrowerAction(input: CreateBorrowerInput) {
 
 export async function updateBorrowerAction(input: UpdateBorrowerInput) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const { borrowerId, ...updates } = input;
     if (!borrowerId) {
@@ -149,7 +149,7 @@ export async function updateBorrowerAction(input: UpdateBorrowerInput) {
 
 export async function deleteBorrowerAction(borrowerId: string) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     if (!borrowerId) {
       return { success: false, error: "ไม่พบรหัสลูกหนี้" };

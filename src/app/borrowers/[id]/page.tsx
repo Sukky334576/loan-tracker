@@ -5,13 +5,14 @@ import { BorrowerProfileClient } from "@/components/BorrowerProfileClient";
 import { getSession } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
 export default async function BorrowerDetailPage({ params }: Props) {
-  await syncDbFromBlob();
+  await syncDbFromBlob(true);
   const session = await getSession();
   const { id } = await params;
 

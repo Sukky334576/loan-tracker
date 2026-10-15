@@ -14,7 +14,7 @@ export interface RecordPaymentInput {
 
 export async function recordPaymentAction(input: RecordPaymentInput) {
   try {
-    await syncDbFromBlob();
+    await syncDbFromBlob(true);
 
     const { loanId, payType, amountPaid, notes, slipUrl } = input;
 

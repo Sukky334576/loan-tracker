@@ -6,31 +6,83 @@ const BLOB_FILENAME = "loan_tracker_db.sqlite";
 const TMP_DB_PATH = path.join("/tmp", "prod.db");
 
 let lastSyncedEtag: string | null = null;
+let lastSyncedTime: number = 0;
 
 /**
  * Ensures the SQLite database on Vercel is in sync with the persistent Vercel Blob store.
+ * @param force If true, bypasses in-memory caching and forces a fresh download from Blob.
  */
-export async function syncDbFromBlob(): Promise<void> {
+export async function syncDbFromBlob(force: boolean = false): Promise<void> {
   if (!process.env.VERCEL) {
+    // Local dev: ensure local DB exists
+    if (!fs.existsSync(TMP_DB_PATH) && process.env.NODE_ENV === "production") {
+      try {
+        const buffer = Buffer.from(DB_BASE64, "base64");
+        fs.writeFileSync(TMP_DB_PATH, buffer);
+      } catch (e) {
+        console.error("Local DB initialization error:", e);
+      }
+    }
     return;
   }
 
   try {
-    const { list, get, put } = await import("@vercel/blob");
+    const { list, put, get } = await import("@vercel/blob");
 
-    // 1. List blobs to find our database file
+    // 1. List blobs with prefix to find our database file
     const { blobs } = await list({ prefix: BLOB_FILENAME });
     const dbBlob = blobs.find((b) => b.pathname === BLOB_FILENAME);
 
     if (dbBlob) {
-      // If we don't have the file locally, or if remote etag has changed
       const localExists = fs.existsSync(TMP_DB_PATH);
-      if (!localExists || lastSyncedEtag !== dbBlob.etag) {
-        const res = await get(dbBlob.url, { access: "private" });
-        if (res && res.stream) {
-          const buffer = Buffer.from(await new Response(res.stream).arrayBuffer());
-          fs.writeFileSync(TMP_DB_PATH, buffer);
+      const remoteUploadedTime = new Date(dbBlob.uploadedAt).getTime();
+      const needsSync =
+        force ||
+        !localExists ||
+        lastSyncedEtag !== dbBlob.etag ||
+        remoteUploadedTime > lastSyncedTime;
+
+      if (needsSync) {
+        // Cache-busted URL with no-cache headers to prevent CDN/Edge caching
+        const cacheBustUrl = `${dbBlob.url}${dbBlob.url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+        
+        let downloadedBuffer: Buffer | null = null;
+
+        try {
+          const fetchRes = await fetch(cacheBustUrl, {
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+              ...(process.env.BLOB_READ_WRITE_TOKEN && {
+                Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+              }),
+            },
+          });
+
+          if (fetchRes.ok) {
+            const arrayBuf = await fetchRes.arrayBuffer();
+            if (arrayBuf.byteLength > 0) {
+              downloadedBuffer = Buffer.from(arrayBuf);
+            }
+          }
+        } catch (fetchErr) {
+          console.warn("Direct fetch with cache-busting failed, falling back to blob get():", fetchErr);
+        }
+
+        // Fallback to official SDK get() if direct fetch didn't return a buffer
+        if (!downloadedBuffer) {
+          const blobGetRes = await get(dbBlob.url, { access: "private" });
+          if (blobGetRes && blobGetRes.stream) {
+            downloadedBuffer = Buffer.from(await new Response(blobGetRes.stream).arrayBuffer());
+          }
+        }
+
+        if (downloadedBuffer && downloadedBuffer.byteLength > 0) {
+          fs.writeFileSync(TMP_DB_PATH, downloadedBuffer);
           lastSyncedEtag = dbBlob.etag;
+          lastSyncedTime = remoteUploadedTime;
         }
       }
     } else {
@@ -46,8 +98,10 @@ export async function syncDbFromBlob(): Promise<void> {
           access: "private",
           addRandomSuffix: false,
           allowOverwrite: true,
+          cacheControlMaxAge: 0,
         });
         lastSyncedEtag = uploaded.etag;
+        lastSyncedTime = Date.now();
       }
     }
   } catch (error) {
@@ -82,9 +136,11 @@ export async function saveDbToBlob(): Promise<void> {
       access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
+      cacheControlMaxAge: 0,
     });
 
     lastSyncedEtag = uploaded.etag;
+    lastSyncedTime = Date.now();
   } catch (error) {
     console.error("Error in saveDbToBlob:", error);
   }

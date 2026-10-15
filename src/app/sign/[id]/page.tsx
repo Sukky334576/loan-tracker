@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { LoanContract } from "@/components/LoanContract";
 import { syncDbFromBlob } from "@/lib/blob-sync";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = {
   title: "ลงนามสัญญากู้ยืมเงินอิเล็กทรอนิกส์",
 };
@@ -13,7 +16,7 @@ interface SignPageProps {
 }
 
 export default async function SignPage({ params }: SignPageProps) {
-  await syncDbFromBlob();
+  await syncDbFromBlob(true);
   const { id } = await params;
 
   const loan = await prisma.loan.findUnique({

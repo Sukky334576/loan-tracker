@@ -2,12 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { LedgerClient, LedgerTransaction } from "@/components/LedgerClient";
 import { syncDbFromBlob } from "@/lib/blob-sync";
 import { getSession } from "@/app/actions/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function LedgerPage() {
-  await syncDbFromBlob();
+  await syncDbFromBlob(true);
   const session = await getSession();
+
+  if (session?.role !== "OWNER") {
+    redirect("/");
+  }
 
   const transactions = await prisma.cashLedger.findMany({
     orderBy: { createdAt: "desc" },

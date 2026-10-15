@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { syncDbFromBlob } from "@/lib/blob-sync";
 
 export async function getDashboardData() {
-  await syncDbFromBlob();
+  await syncDbFromBlob(true);
   const now = new Date();
   
   // Start and end of today
