@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
+import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
 
 export interface RecordPaymentInput {
   loanId: string;
@@ -13,6 +14,8 @@ export interface RecordPaymentInput {
 
 export async function recordPaymentAction(input: RecordPaymentInput) {
   try {
+    await syncDbFromBlob();
+
     const { loanId, payType, amountPaid, notes, slipUrl } = input;
 
     if (!loanId || amountPaid <= 0) {
@@ -75,9 +78,9 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
     nextDueDate.setHours(18, 0, 0, 0);
 
     // 2. Execute Atomic Transaction
-    await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Create Payment Record
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           loanId: loan.id,
           paymentType: isSettlement
@@ -151,13 +154,29 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
           }),
         },
       });
+
+      return {
+        paymentId: payment.id,
+        amountPaid,
+        principalCut,
+        currentInterestPaid,
+        penaltyPaid,
+        newRemainingPrincipal,
+        isSettlement,
+        borrowerName: loan.borrower.fullName,
+      };
     });
+
+    await saveDbToBlob();
 
     safeRevalidate("/");
     safeRevalidate("/ledger");
     safeRevalidate("/borrowers");
 
-    return { success: true };
+    return { 
+      success: true, 
+      receipt: result 
+    };
   } catch (error: any) {
     console.error("Payment action error:", error);
     return { success: false, error: error.message ?? "บันทึกการชำระเงินล้มเหลว" };

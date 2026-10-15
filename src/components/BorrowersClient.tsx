@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Plus, ArrowUpRight, Trash2, Search, Loader2 } from "lucide-react";
+import { Phone, Plus, ArrowUpRight, Trash2, Search, Loader2, Download, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { deleteBorrowerAction } from "@/app/actions/borrowers";
 import { motion, AnimatePresence } from "motion/react";
+import { exportToCsv } from "@/lib/export-csv";
 
 export interface BorrowerItem {
   id: string;
@@ -55,6 +56,38 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
     }
   };
 
+  const handleExportCsv = () => {
+    const headers = [
+      "ชื่อ-นามสกุล",
+      "เบอร์โทรศัพท์",
+      "สถานที่ทำงาน",
+      "ระดับเครดิต (Tier)",
+      "เพดานวงเงิน (บาท)",
+      "หนี้คงค้างปัจจุบัน (บาท)",
+      "รอบสัญญาที่จบแล้ว",
+    ];
+
+    const rows = filteredBorrowers.map((b) => {
+      const activeLoans = b.loans.filter((l) =>
+        ["ACTIVE", "OVERDUE", "PARTIALLY_PAID"].includes(l.status)
+      );
+      const remaining = activeLoans.reduce((sum, l) => sum + l.remainingPrincipal, 0);
+
+      return [
+        b.fullName,
+        b.phone,
+        b.workplace || "-",
+        b.creditGrade,
+        b.creditLimit,
+        remaining,
+        b.completedCycles,
+      ];
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    exportToCsv(`borrowers-report-${dateStr}.csv`, headers, rows);
+  };
+
   return (
     <div className="w-full pb-24 md:pb-12">
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5">
@@ -68,7 +101,17 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 shadow-xs transition-all hover:bg-zinc-100 active:scale-95 cursor-pointer"
+              title="ส่งออกรายงาน Excel / CSV"
+            >
+              <Download className="size-3.5" />
+              <span>Export CSV</span>
+            </button>
+
             <Link
               href="/borrowers/new"
               className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all duration-150 hover:bg-zinc-800 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 active:scale-95 select-none cursor-pointer"
@@ -76,6 +119,7 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
               <Plus className="size-4 stroke-[2.5]" />
               <span>+ เพิ่มลูกหนี้ใหม่</span>
             </Link>
+
             <Link
               href="/loans/new"
               className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-700 shadow-xs transition-all duration-150 hover:bg-zinc-100 active:scale-95 select-none"
@@ -117,9 +161,12 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-zinc-900 truncate group-hover:text-black transition-colors">
+                        <Link
+                          href={`/borrowers/${b.id}`}
+                          className="text-sm font-bold text-zinc-900 truncate hover:text-blue-600 hover:underline transition-colors"
+                        >
                           {b.fullName}
-                        </span>
+                        </Link>
                         <span
                           className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold transition-transform duration-150 group-hover:scale-105 ${
                             b.creditGrade === "GOOD"
@@ -161,7 +208,16 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                       <strong className="text-zinc-800">{b.completedCycles} รอบ</strong>
                     </span>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <Link
+                        href={`/borrowers/${b.id}`}
+                        className="flex items-center gap-1 text-zinc-500 hover:text-zinc-900 font-semibold transition-colors"
+                        title="ดูข้อมูลและประวัติการกู้"
+                      >
+                        <UserCheck className="size-3.5" />
+                        <span>ประวัติ</span>
+                      </Link>
+
                       <button
                         type="button"
                         onClick={() => setBorrowerToDelete(b)}

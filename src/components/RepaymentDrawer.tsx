@@ -1,15 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   X, 
   CheckCircle2, 
   Camera, 
   AlertCircle, 
-  Sparkles,
-  Trash2,
-  Loader2
+  Sparkles, 
+  Trash2, 
+  Loader2,
+  Copy,
+  Check,
+  Printer,
+  Receipt,
+  ArrowRight
 } from "lucide-react";
 import { LoanCardData } from "@/components/LoanCard";
 import { recordPaymentAction } from "@/app/actions/payments";
@@ -20,6 +25,20 @@ export interface PaymentSuccessResult {
   amountPaid: number;
   isSettlement: boolean;
   remainingPrincipal: number;
+}
+
+interface ReceiptDetails {
+  receiptNo: string;
+  paidAt: string;
+  borrowerName: string;
+  amountPaid: number;
+  penaltyPaid: number;
+  interestPaid: number;
+  principalCut: number;
+  remainingPrincipal: number;
+  isSettlement: boolean;
+  payType: "INTEREST" | "PRINCIPAL_CUT" | "SETTLE";
+  nextDueDateStr?: string;
 }
 
 interface RepaymentDrawerProps {
@@ -42,8 +61,25 @@ export function RepaymentDrawer({
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptDetails | null>(null);
+  const [copiedReceipt, setCopiedReceipt] = useState(false);
+
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+      setReceipt(null);
+      setErrorMessage(null);
+      setSlipFile(null);
+      setSlipPreview(null);
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   if (!loan) return null;
 
@@ -87,47 +123,112 @@ export function RepaymentDrawer({
     setIsSubmitting(false);
 
     if (res.success) {
-      setSubmittedSuccess(true);
-      setTimeout(() => {
-        setSubmittedSuccess(false);
-        onClose();
-        
-        let newPrincipal = loan.remainingPrincipal;
-        if (isSettlement) {
-          newPrincipal = 0;
-        } else if (payType === "PRINCIPAL_CUT") {
-          const principalCut = Math.max(0, currentAmount - minInterestDue);
-          newPrincipal = Math.max(0, loan.remainingPrincipal - principalCut);
-        }
+      let principalCut = 0;
+      let newPrincipal = loan.remainingPrincipal;
 
-        onSuccess?.({
-          loanId: loan.id,
-          payType,
-          amountPaid: currentAmount,
-          isSettlement,
-          remainingPrincipal: newPrincipal,
-        });
-      }, 1000);
+      if (isSettlement) {
+        principalCut = loan.remainingPrincipal;
+        newPrincipal = 0;
+      } else if (payType === "PRINCIPAL_CUT") {
+        principalCut = Math.max(0, currentAmount - minInterestDue);
+        newPrincipal = Math.max(0, loan.remainingPrincipal - principalCut);
+      }
+
+      const penaltyPaid = Math.min(loan.penaltyAccrued, currentAmount);
+      const interestPaid = Math.max(0, Math.min(currentAmount - penaltyPaid, cycleInterest + loan.accruedInterest));
+
+      const now = new Date();
+      const receiptNo = `RC-${loan.id.slice(-6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      const paidAtStr = now.toLocaleDateString("th-TH", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const termDays = loan.termType === "DAYS_7" ? 7 : 10;
+      const nextDue = new Date(now);
+      nextDue.setDate(nextDue.getDate() + termDays);
+      const nextDueDateStr = nextDue.toLocaleDateString("th-TH", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+
+      setReceipt({
+        receiptNo,
+        paidAt: paidAtStr,
+        borrowerName: loan.borrowerName,
+        amountPaid: currentAmount,
+        penaltyPaid,
+        interestPaid,
+        principalCut,
+        remainingPrincipal: newPrincipal,
+        isSettlement,
+        payType,
+        nextDueDateStr,
+      });
+
+      onSuccess?.({
+        loanId: loan.id,
+        payType,
+        amountPaid: currentAmount,
+        isSettlement,
+        remainingPrincipal: newPrincipal,
+      });
     } else {
       setErrorMessage(res.error ?? "เกิดข้อผิดพลาดในการบันทึกยอด");
     }
+  };
+
+  const handleCopyReceipt = async () => {
+    if (!receipt) return;
+    const text = `🧾 ใบเสร็จรับเงินดิจิทัล LT LoanTracker\n` +
+      `--------------------------------\n` +
+      `เลขที่: ${receipt.receiptNo}\n` +
+      `วันที่: ${receipt.paidAt}\n` +
+      `ผู้กู้: ${receipt.borrowerName}\n` +
+      `ประเภท: ${receipt.isSettlement ? "ปิดยอดสัญญาเต็มจำนวน" : receipt.payType === "PRINCIPAL_CUT" ? "ตัดดอกเบี้ย + โปะเงินต้น" : "ชำระดอกเบี้ยต่องวด"}\n` +
+      `--------------------------------\n` +
+      (receipt.penaltyPaid > 0 ? `• ค่าปรับล่าช้า: ${receipt.penaltyPaid.toLocaleString()} บาท\n` : "") +
+      `• ดอกเบี้ยชำระ: ${receipt.interestPaid.toLocaleString()} บาท\n` +
+      (receipt.principalCut > 0 ? `• ตัดลดเงินต้น: ${receipt.principalCut.toLocaleString()} บาท\n` : "") +
+      `💰 ยอดชำระรวม: ${receipt.amountPaid.toLocaleString()} บาท\n` +
+      `--------------------------------\n` +
+      `💵 เงินต้นคงเหลือ: ${receipt.isSettlement ? "0 บาท (จบสัญญาเรียบร้อย ✅)" : `${receipt.remainingPrincipal.toLocaleString()} บาท`}\n` +
+      (!receipt.isSettlement ? `📅 กำหนดชำระงวดถัดไป: ${receipt.nextDueDateStr}\n` : "") +
+      `--------------------------------\n` +
+      `ขอบคุณที่ชำระตรงเวลาครับ 🙏`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedReceipt(true);
+      setTimeout(() => setCopiedReceipt(false), 2500);
+    } catch {
+      // Fallback
+    }
+  };
+
+  const handlePrintReceipt = () => {
+    window.print();
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          {/* Backdrop Blur */}
+          {/* Solid Backdrop Blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md"
           />
 
-          {/* Bottom Sheet Modal */}
+          {/* Modal Card */}
           <motion.div
             initial={{ y: "100%", opacity: 0.5 }}
             animate={{ y: 0, opacity: 1 }}
@@ -137,50 +238,157 @@ export function RepaymentDrawer({
               damping: 26,
               stiffness: 280,
             }}
-            className="relative z-10 w-full max-w-lg rounded-t-3xl sm:rounded-2xl border-t sm:border border-zinc-200/90 bg-white p-5 shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+            className="relative z-10 w-full max-w-lg rounded-t-3xl sm:rounded-2xl border-t sm:border border-zinc-200 bg-white p-5 shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)] max-h-[90vh] overflow-y-auto"
           >
             {/* Grab Handle for Mobile */}
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300/80 sm:hidden" />
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300 sm:hidden" />
 
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-zinc-150">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                  บันทึกรับชำระเงิน
-                </span>
-                <h3 className="text-base font-bold text-zinc-900">
-                  {loan.borrowerName}
-                </h3>
+              <div className="flex items-center gap-2">
+                <div className="size-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                  <Receipt className="size-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    {receipt ? "ออกใบเสร็จเรียบร้อย" : "บันทึกรับชำระเงิน"}
+                  </span>
+                  <h3 className="text-sm font-bold text-zinc-900">
+                    {loan.borrowerName}
+                  </h3>
+                </div>
               </div>
 
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose}
-                className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 cursor-pointer"
               >
                 <X className="size-4" />
               </motion.button>
             </div>
 
-            {submittedSuccess ? (
+            {/* RECEIPT VIEW */}
+            {receipt ? (
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
+                initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="py-8 text-center flex flex-col items-center justify-center"
+                className="mt-4 flex flex-col gap-4 animate-in fade-in-50 duration-200"
               >
-                <div className="size-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3 shadow-inner">
-                  <CheckCircle2 className="size-8" />
+                {/* Official Receipt Card */}
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-zinc-200 pb-2.5">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900">ใบเสร็จรับเงินดิจิทัล</span>
+                      <p className="text-[10px] font-mono text-zinc-500">เลขที่: {receipt.receiptNo}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                      ชำระสำเร็จ ✅
+                    </span>
+                  </div>
+
+                  <div className="mt-3 space-y-1.5 text-xs text-zinc-600">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">วันเวลาที่รับชำระ:</span>
+                      <span className="font-semibold text-zinc-800">{receipt.paidAt}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">ชื่อผู้กู้:</span>
+                      <span className="font-bold text-zinc-900">{receipt.borrowerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">รูปแบบการชำระ:</span>
+                      <span className="font-semibold text-zinc-800">
+                        {receipt.isSettlement
+                          ? "ปิดยอดสัญญาเต็มจำนวน"
+                          : receipt.payType === "PRINCIPAL_CUT"
+                          ? "ตัดดอกเบี้ย + โปะเงินต้น"
+                          : "ชำระดอกเบี้ยต่องวด (Rollover)"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Financial Breakdown */}
+                  <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3 text-xs space-y-1.5">
+                    {receipt.penaltyPaid > 0 && (
+                      <div className="flex justify-between text-rose-600 font-medium">
+                        <span>ค่าปรับล่าช้า:</span>
+                        <span className="font-mono font-bold">+{receipt.penaltyPaid.toLocaleString()} ฿</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-zinc-700">
+                      <span>ดอกเบี้ยที่ชำระ:</span>
+                      <span className="font-mono font-bold">{receipt.interestPaid.toLocaleString()} ฿</span>
+                    </div>
+                    {receipt.principalCut > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-bold border-t border-dashed border-zinc-200 pt-1">
+                        <span>ตัดลดเงินต้น:</span>
+                        <span className="font-mono">-{receipt.principalCut.toLocaleString()} ฿</span>
+                      </div>
+                    )}
+                    <div className="flex items-baseline justify-between border-t border-zinc-200 pt-2 text-sm font-bold text-zinc-900">
+                      <span>ยอดเงินรับชำระรวม:</span>
+                      <span className="font-mono text-base font-extrabold text-emerald-700">
+                        {receipt.amountPaid.toLocaleString()} ฿
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Remaining Principal & Next Due */}
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-zinc-200/50 p-2.5 text-xs">
+                    <span className="text-zinc-600 font-medium">ยอดเงินต้นคงเหลือ:</span>
+                    <span className="font-mono font-extrabold text-zinc-900">
+                      {receipt.isSettlement ? "0 ฿ (จบสัญญาบริบูรณ์)" : `${receipt.remainingPrincipal.toLocaleString()} ฿`}
+                    </span>
+                  </div>
+
+                  {!receipt.isSettlement && receipt.nextDueDateStr && (
+                    <p className="mt-2 text-center text-[11px] text-zinc-500">
+                      📅 นัดชำระงวดถัดไป: <strong className="text-zinc-800">{receipt.nextDueDateStr}</strong>
+                    </p>
+                  )}
                 </div>
-                <h4 className="text-base font-bold text-zinc-900">
-                  {payType === "SETTLE" ? "ปิดยอดสัญญาเรียบร้อยแล้ว!" : "บันทึกรับเงินเรียบร้อย!"}
-                </h4>
-                <p className="text-xs text-zinc-500 mt-1">
-                  {payType === "SETTLE" 
-                    ? "สถานะสัญญาเปลี่ยนเป็นจบหนี้เรียบร้อย"
-                    : "ยอดเงินถูกนำไปหักตามลำดับ Waterfall แล้ว"}
-                </p>
+
+                {/* Receipt Actions */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyReceipt}
+                    className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
+                  >
+                    {copiedReceipt ? (
+                      <>
+                        <Check className="size-4 text-emerald-600" />
+                        <span>คัดลอกแล้ว!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-4" />
+                        <span>ส่งบิล LINE</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePrintReceipt}
+                    className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-100 text-xs font-bold text-zinc-700 hover:bg-zinc-200 transition-colors cursor-pointer"
+                  >
+                    <Printer className="size-4" />
+                    <span>พิมพ์ใบเสร็จ</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-xs font-bold text-white shadow-xs hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <span>เสร็จสิ้น / ปิดหน้าต่าง</span>
+                </button>
               </motion.div>
             ) : (
+              /* PAYMENT FORM VIEW */
               <div className="mt-4 flex flex-col gap-4">
                 {errorMessage && (
                   <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
@@ -190,7 +398,7 @@ export function RepaymentDrawer({
                 )}
 
                 {/* Mode Selector Tabs with Motion Pill */}
-                <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100/90 p-1">
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 p-1">
                   {(
                     [
                       { id: "INTEREST", label: "ตัดดอก" },
@@ -207,7 +415,7 @@ export function RepaymentDrawer({
                           setPayType(tab.id);
                           setErrorMessage(null);
                         }}
-                        className={`relative rounded-lg py-2 text-xs font-bold transition-colors select-none ${
+                        className={`relative rounded-lg py-2 text-xs font-bold transition-colors select-none cursor-pointer ${
                           isSelected ? "text-zinc-950" : "text-zinc-500 hover:text-zinc-800"
                         }`}
                       >

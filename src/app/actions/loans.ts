@@ -2,11 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
+import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
 
 export interface CreateLoanInput {
   borrowerId: string;
   principal: number;
-  termType: "DAYS_7" | "DAYS_10";
+  termType: "DAYS_7" | "DAYS_10" | "CUSTOM";
+  customDays?: number;
+  customInterestRate?: number;
   processingFee: number;
   contractType?: "STANDARD" | "GUARANTEED";
   contractPlace?: string;
@@ -20,10 +23,14 @@ export interface CreateLoanInput {
 
 export async function createLoanAction(input: CreateLoanInput) {
   try {
+    await syncDbFromBlob();
+
     const {
       borrowerId,
       principal,
       termType,
+      customDays,
+      customInterestRate,
       processingFee,
       contractType = "STANDARD",
       contractPlace = "บ้านเป้า",
@@ -74,8 +81,18 @@ export async function createLoanAction(input: CreateLoanInput) {
     }
 
     // 3. Calculate Interest Rate and Due Date
-    const interestRate = termType === "DAYS_7" ? 0.15 : 0.20;
-    const termDays = termType === "DAYS_7" ? 7 : 10;
+    let interestRate = 0.20;
+    let termDays = 10;
+    if (termType === "DAYS_7") {
+      interestRate = 0.15;
+      termDays = 7;
+    } else if (termType === "DAYS_10") {
+      interestRate = 0.20;
+      termDays = 10;
+    } else if (termType === "CUSTOM") {
+      interestRate = customInterestRate !== undefined ? Number(customInterestRate) : 0.20;
+      termDays = customDays !== undefined && Number(customDays) > 0 ? Number(customDays) : 10;
+    }
 
     const startDate = new Date();
     const currentDueDate = new Date(startDate);
@@ -86,6 +103,20 @@ export async function createLoanAction(input: CreateLoanInput) {
     const cycleInterest = principal * interestRate;
     const upfrontDeductionAmount = isUpfrontDeduction ? cycleInterest : 0;
     const disbursedAmount = Math.max(0, principal - upfrontDeductionAmount - processingFee);
+
+    // 5. Verify Cash Reserve
+    const ledgerEntries = await prisma.cashLedger.findMany();
+    const currentCash = ledgerEntries.reduce((sum, entry) => {
+      if (entry.type === "CAPITAL_INJECTION" || entry.type === "REPAYMENT") return sum + entry.amount;
+      return sum - entry.amount;
+    }, 0);
+
+    if (disbursedAmount > currentCash) {
+      return {
+        success: false,
+        error: `เงินสดสำรองในกองกลางไม่เพียงพอต่อการปล่อยกู้ (กองกลางคงเหลือ ${currentCash.toLocaleString()} ฿, ต้องโอนจริง ${disbursedAmount.toLocaleString()} ฿)`,
+      };
+    }
 
     // 5. Find first active agent or default
     const agent = await prisma.user.findFirst({
@@ -167,8 +198,11 @@ export async function createLoanAction(input: CreateLoanInput) {
       return loan;
     });
 
+    await saveDbToBlob();
+
     safeRevalidate("/");
     safeRevalidate("/borrowers");
+    safeRevalidate("/ledger");
     return { success: true, loanId: result.id };
   } catch (error: any) {
     console.error("Create loan error:", error);
@@ -178,6 +212,8 @@ export async function createLoanAction(input: CreateLoanInput) {
 
 export async function deleteLoanAction(loanId: string) {
   try {
+    await syncDbFromBlob();
+
     if (!loanId) {
       return { success: false, error: "ไม่พบรหัสสัญญาเงินกู้" };
     }
@@ -211,6 +247,8 @@ export async function deleteLoanAction(loanId: string) {
         }),
       },
     });
+
+    await saveDbToBlob();
 
     safeRevalidate("/");
     safeRevalidate("/borrowers");

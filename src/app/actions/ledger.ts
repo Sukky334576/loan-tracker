@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
+import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
+import { getSession } from "@/app/actions/auth";
 
 export async function addCapitalAction(params: {
   amount: number;
@@ -9,6 +11,7 @@ export async function addCapitalAction(params: {
   description?: string;
 }) {
   try {
+    await syncDbFromBlob();
     const { amount, type = "CAPITAL_INJECTION", description } = params;
 
     if (!amount || amount <= 0) {
@@ -28,6 +31,8 @@ export async function addCapitalAction(params: {
       },
     });
 
+    await saveDbToBlob();
+
     safeRevalidate("/");
     safeRevalidate("/ledger");
 
@@ -43,6 +48,13 @@ export async function setFundBalanceAction(params: {
   description?: string;
 }) {
   try {
+    const session = await getSession();
+    if (session && session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการปรับยอดกองกลาง" };
+    }
+
+    await syncDbFromBlob();
+
     const { targetAmount, description } = params;
 
     if (targetAmount === undefined || targetAmount === null || targetAmount < 0) {
@@ -82,6 +94,8 @@ export async function setFundBalanceAction(params: {
       });
     }
 
+    await saveDbToBlob();
+
     safeRevalidate("/");
     safeRevalidate("/ledger");
 
@@ -96,6 +110,13 @@ export async function resetDatabaseToProductionAction(params?: {
   initialCapital?: number;
 }) {
   try {
+    const session = await getSession();
+    if (session && session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการล้างข้อมูลระบบ" };
+    }
+
+    await syncDbFromBlob();
+
     const initialCapital = params?.initialCapital ? Number(params.initialCapital) : 0;
 
     await prisma.$transaction(async (tx) => {
@@ -119,6 +140,8 @@ export async function resetDatabaseToProductionAction(params?: {
         });
       }
     });
+
+    await saveDbToBlob();
 
     safeRevalidate("/");
     safeRevalidate("/borrowers");

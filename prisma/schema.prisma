@@ -22,6 +22,7 @@ enum CreditGrade {
 enum LoanTerm {
   DAYS_7
   DAYS_10
+  CUSTOM
 }
 
 enum LoanStatus {

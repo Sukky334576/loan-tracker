@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { syncDbFromBlob } from "@/lib/blob-sync";
 
 export async function getDashboardData() {
+  await syncDbFromBlob();
   const now = new Date();
   
   // Start and end of today
@@ -29,11 +31,23 @@ export async function getDashboardData() {
     ],
   });
 
-  // Calculate days diff for each loan
+  // Calculate days diff and auto overdue for each loan
   const mappedLoans = loans.map((loan) => {
     const due = new Date(loan.currentDueDate);
     const diffTime = due.getTime() - startOfToday.getTime();
     const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let status = loan.status;
+    let penaltyAccrued = loan.penaltyAccrued;
+
+    if (status !== "SETTLED" && status !== "BAD_DEBT") {
+      if (daysDiff < 0) {
+        status = "OVERDUE";
+        const overdueDays = Math.abs(daysDiff);
+        const penaltyRate = loan.dailyPenaltyRate || 50;
+        penaltyAccrued = Math.max(loan.penaltyAccrued, overdueDays * penaltyRate);
+      }
+    }
 
     return {
       id: loan.id,
@@ -43,12 +57,12 @@ export async function getDashboardData() {
       facebookUrl: loan.borrower.facebookUrl,
       creditGrade: loan.borrower.creditGrade as "NEW" | "GOOD" | "BLACKLIST",
       remainingPrincipal: loan.remainingPrincipal,
-      termType: loan.termType as "DAYS_7" | "DAYS_10",
+      termType: loan.termType as "DAYS_7" | "DAYS_10" | "CUSTOM",
       interestRate: loan.interestRate,
       rolloverCount: loan.rolloverCount,
       accruedInterest: loan.accruedInterest,
-      penaltyAccrued: loan.penaltyAccrued,
-      status: loan.status as "ACTIVE" | "PARTIALLY_PAID" | "OVERDUE" | "SETTLED" | "BAD_DEBT",
+      penaltyAccrued,
+      status: status as "ACTIVE" | "PARTIALLY_PAID" | "OVERDUE" | "SETTLED" | "BAD_DEBT",
       currentDueDate: loan.currentDueDate.toISOString(),
       daysDiff,
     };

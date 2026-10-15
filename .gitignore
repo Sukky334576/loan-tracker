@@ -36,5 +36,6 @@ next-env.d.ts
 cloudflared.exe
 *.exe
 
-.vercel
 .env*
+prisma/*.db
+prisma/*.db-journal

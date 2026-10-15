@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
+import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
 
 export async function saveSignatureAction(params: {
   loanId: string;
@@ -9,6 +10,7 @@ export async function saveSignatureAction(params: {
   signatureDataUrl: string;
 }) {
   try {
+    await syncDbFromBlob();
     const { loanId, role, signatureDataUrl } = params;
 
     if (!loanId || !signatureDataUrl) {
@@ -52,6 +54,8 @@ export async function saveSignatureAction(params: {
       data: updateData,
     });
 
+    await saveDbToBlob();
+
     safeRevalidate(`/loans/${loanId}/contract`);
     safeRevalidate(`/sign/${loanId}`);
     safeRevalidate("/");
@@ -68,6 +72,8 @@ export async function clearSignatureAction(params: {
   role: "borrower" | "guarantor";
 }) {
   try {
+    await syncDbFromBlob();
+
     const { loanId, role } = params;
 
     const updateData: {
@@ -88,6 +94,8 @@ export async function clearSignatureAction(params: {
       where: { id: loanId },
       data: updateData,
     });
+
+    await saveDbToBlob();
 
     safeRevalidate(`/loans/${loanId}/contract`);
     safeRevalidate(`/sign/${loanId}`);

@@ -22,7 +22,7 @@ export interface LoanCardData {
   facebookUrl?: string | null;
   creditGrade: "NEW" | "GOOD" | "BLACKLIST";
   remainingPrincipal: number;
-  termType: "DAYS_7" | "DAYS_10";
+  termType: "DAYS_7" | "DAYS_10" | "CUSTOM";
   interestRate: number;
   rolloverCount: number;
   accruedInterest: number;
@@ -200,7 +200,11 @@ export function LoanCard({ loan, onPaymentClick, onDeleteClick }: LoanCardProps)
               <div className="text-right">
                 <span className="text-zinc-500 text-[11px]">รอบสัญญา</span>
                 <p className="font-semibold text-xs text-zinc-700">
-                  {loan.termType === "DAYS_7" ? "7 วัน (15%)" : "10 วัน (20%)"}
+                  {loan.termType === "DAYS_7"
+                    ? "7 วัน (15%)"
+                    : loan.termType === "DAYS_10"
+                    ? "10 วัน (20%)"
+                    : `กำหนดเอง (${(loan.interestRate * 100).toFixed(0)}%)`}
                 </p>
               </div>
             </div>

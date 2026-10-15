@@ -9,9 +9,12 @@ import {
   TrendingUp, 
   Plus, 
   Sliders,
-  RotateCcw
+  RotateCcw,
+  Download,
+  ShieldCheck
 } from "lucide-react";
 import { FundModal } from "@/components/FundModal";
+import { exportToCsv } from "@/lib/export-csv";
 
 export interface LedgerTransaction {
   id: string;
@@ -28,6 +31,7 @@ interface LedgerClientProps {
   totalRepaid: number;
   totalWithdrawn: number;
   cashBalance: number;
+  userRole?: "OWNER" | "AGENT";
 }
 
 export function LedgerClient({
@@ -37,31 +41,72 @@ export function LedgerClient({
   totalRepaid,
   totalWithdrawn,
   cashBalance,
+  userRole = "OWNER",
 }: LedgerClientProps) {
   const router = useRouter();
   const [isFundModalOpen, setIsFundModalOpen] = useState(false);
+
+  const isOwner = userRole === "OWNER";
+
+  const handleExportCsv = () => {
+    const headers = ["วันที่-เวลา", "ประเภทธุรกรรม", "คำอธิบาย / รายละเอียด", "จำนวนเงิน (บาท)"];
+    const rows = transactions.map((tx) => {
+      const isInflow = tx.type === "CAPITAL_INJECTION" || tx.type === "REPAYMENT";
+      return [
+        new Date(tx.createdAt).toLocaleString("th-TH"),
+        tx.type,
+        tx.description,
+        `${isInflow ? "+" : "-"}${tx.amount}`,
+      ];
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    exportToCsv(`ledger-transactions-${dateStr}.csv`, headers, rows);
+  };
 
   return (
     <div className="w-full pb-24 md:pb-12">
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-zinc-900">
-              กระเป๋าเงินกองกลาง & บัญชีเงินสด
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight text-zinc-900">
+                กระเป๋าเงินกองกลาง & บัญชีเงินสด
+              </h2>
+              {!isOwner && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                  <ShieldCheck className="size-3" />
+                  สายตรวจ (Agent)
+                </span>
+              )}
+            </div>
             <p className="text-xs text-zinc-500 mt-0.5">
               ภาพรวมกระแสเงินสดหมุนเวียนและการปล่อยกู้ของนายทุน
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsFundModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all duration-150 hover:bg-zinc-800 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 active:scale-95 select-none cursor-pointer"
-          >
-            <Plus className="size-4 stroke-[2.5]" />
-            <span>เติม / ตั้งยอดเงินกองกลาง</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 shadow-xs transition-all hover:bg-zinc-100 active:scale-95 cursor-pointer"
+              title="ส่งออกประวัติการเคลื่อนไหวเป็น CSV"
+            >
+              <Download className="size-3.5" />
+              <span>Export CSV</span>
+            </button>
+
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setIsFundModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all duration-150 hover:bg-zinc-800 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 active:scale-95 select-none cursor-pointer"
+              >
+                <Plus className="size-4 stroke-[2.5]" />
+                <span>เติม / ตั้งยอดเงินกองกลาง</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Responsive Grid */}
@@ -82,13 +127,15 @@ export function LedgerClient({
                   <span className="text-sm font-semibold text-zinc-400">บาท</span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsFundModalOpen(true)}
-                  className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
-                >
-                  ปรับยอด
-                </button>
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFundModalOpen(true)}
+                    className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                  >
+                    ปรับยอด
+                  </button>
+                )}
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-2 border-t border-zinc-150 pt-3 text-xs">
@@ -128,13 +175,15 @@ export function LedgerClient({
                   ประวัติการเคลื่อนไหวล่าสุด ({transactions.length} รายการ)
                 </h3>
 
-                <button
-                  type="button"
-                  onClick={() => setIsFundModalOpen(true)}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                >
-                  + เติมเงิน
-                </button>
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFundModalOpen(true)}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                  >
+                    + เติมเงิน
+                  </button>
+                )}
               </div>
 
               {transactions.length > 0 ? (
@@ -204,13 +253,15 @@ export function LedgerClient({
         </div>
       </main>
 
-      {/* Fund Modal */}
-      <FundModal
-        isOpen={isFundModalOpen}
-        onClose={() => setIsFundModalOpen(false)}
-        currentBalance={cashBalance}
-        onSuccess={() => router.refresh()}
-      />
+      {/* Fund Modal (Only openable by Owner) */}
+      {isOwner && (
+        <FundModal
+          isOpen={isFundModalOpen}
+          onClose={() => setIsFundModalOpen(false)}
+          currentBalance={cashBalance}
+          onSuccess={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

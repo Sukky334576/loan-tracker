@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { LedgerClient, LedgerTransaction } from "@/components/LedgerClient";
+import { syncDbFromBlob } from "@/lib/blob-sync";
+import { getSession } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function LedgerPage() {
+  await syncDbFromBlob();
+  const session = await getSession();
+
   const transactions = await prisma.cashLedger.findMany({
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -39,6 +44,7 @@ export default async function LedgerPage() {
       totalRepaid={totalRepaid}
       totalWithdrawn={totalWithdrawn}
       cashBalance={cashBalance}
+      userRole={session?.role ?? "OWNER"}
     />
   );
 }

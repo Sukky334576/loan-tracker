@@ -17,9 +17,11 @@ import {
   CheckCircle2,
   Trash2,
   Loader2,
-  X
+  X,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { exportToCsv } from "@/lib/export-csv";
 
 interface DashboardClientProps {
   initialLoans: LoanCardData[];
@@ -97,6 +99,39 @@ export function DashboardClient({
     { id: "OVERDUE" as const, label: `เกินกำหนด (${overdueLoans.length})`, dot: "bg-rose-600" },
     { id: "SETTLED" as const, label: `ปิดยอดแล้ว (${settledLoans.length})`, dot: "bg-emerald-500" },
   ];
+
+  const handleExportCsv = () => {
+    const headers = [
+      "ชื่อผู้กู้",
+      "เบอร์โทรศัพท์",
+      "เงินต้นคงค้าง (บาท)",
+      "รอบสัญญา",
+      "อัตราดอกเบี้ย",
+      "สถานะ",
+      "วันครบกำหนด",
+      "ค่าปรับค้างชำระ (บาท)",
+      "ยอดต้องชำระตัดดอก (บาท)",
+    ];
+
+    const rows = filteredLoans.map((loan) => {
+      const cycleInterest = loan.remainingPrincipal * loan.interestRate;
+      const totalDue = loan.penaltyAccrued + loan.accruedInterest + cycleInterest;
+      return [
+        loan.borrowerName,
+        loan.phone,
+        loan.remainingPrincipal,
+        loan.termType,
+        `${(loan.interestRate * 100).toFixed(0)}%`,
+        loan.status,
+        new Date(loan.currentDueDate).toLocaleDateString("th-TH"),
+        loan.penaltyAccrued,
+        totalDue,
+      ];
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    exportToCsv(`loans-dashboard-${dateStr}.csv`, headers, rows);
+  };
 
   // Handle Payment Success with Instant Optimistic UI Update
   const handlePaymentSuccess = (result: PaymentSuccessResult) => {
@@ -322,6 +357,16 @@ export function DashboardClient({
                 </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 font-semibold text-zinc-700 shadow-2xs transition-all hover:bg-zinc-100 active:scale-95 cursor-pointer text-xs"
+              title="ส่งออกรายงานสัญญาเงินกู้เป็น CSV"
+            >
+              <Download className="size-3.5" />
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
 
