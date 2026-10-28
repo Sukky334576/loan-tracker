@@ -21,6 +21,7 @@ export interface CreateLoanInput {
   guarantorCitizenId?: string;
   guarantorPhone?: string;
   guarantorAddress?: string;
+  startDate?: string;
 }
 
 export async function createLoanAction(input: CreateLoanInput) {
@@ -45,6 +46,7 @@ export async function createLoanAction(input: CreateLoanInput) {
       guarantorCitizenId,
       guarantorPhone,
       guarantorAddress,
+      startDate: inputStartDate,
     } = input;
 
     if (!borrowerId || principal <= 0) {
@@ -119,10 +121,28 @@ export async function createLoanAction(input: CreateLoanInput) {
       termDays = customDays !== undefined && Number(customDays) > 0 ? Number(customDays) : 10;
     }
 
-    const startDate = new Date();
+    // Support backdating for loan start date
+    let startDate = new Date();
+    if (inputStartDate) {
+      const parsed = new Date(inputStartDate.includes("T") ? inputStartDate : `${inputStartDate}T09:00:00`);
+      if (!isNaN(parsed.getTime())) {
+        startDate = parsed;
+      }
+    }
+
     const currentDueDate = new Date(startDate);
     currentDueDate.setDate(currentDueDate.getDate() + termDays);
     currentDueDate.setHours(18, 0, 0, 0);
+
+    // If backdated due date is already in the past, evaluate overdue and accrued penalty
+    let initialStatus: "ACTIVE" | "OVERDUE" = "ACTIVE";
+    let initialPenalty = 0;
+    if (currentDueDate.getTime() < startOfToday.getTime()) {
+      initialStatus = "OVERDUE";
+      const diffTime = currentDueDate.getTime() - startOfToday.getTime();
+      const overdueDays = Math.abs(Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      initialPenalty = overdueDays * (dailyPenaltyRate || 50.0);
+    }
 
     // 4. Upfront Interest & Disbursement Calculations
     const cycleInterest = principal * interestRate;
@@ -171,9 +191,11 @@ export async function createLoanAction(input: CreateLoanInput) {
           guarantorCitizenId: guarantorCitizenId?.trim() || null,
           guarantorPhone: guarantorPhone?.trim() || null,
           guarantorAddress: guarantorAddress?.trim() || null,
-          status: "ACTIVE",
+          status: initialStatus,
+          penaltyAccrued: initialPenalty,
           startDate,
           currentDueDate,
+          createdAt: startDate,
         },
       });
 
@@ -186,6 +208,7 @@ export async function createLoanAction(input: CreateLoanInput) {
           description: isUpfrontDeduction
             ? `ปล่อยกู้ ${borrower.fullName} โดย ${session?.username || "เจ้าหน้าที่"} (ยอดกู้ ${principal.toLocaleString()} ฿ หักดอกล่วงหน้า ${upfrontDeductionAmount.toLocaleString()} ฿ โอนจริง ${disbursedAmount.toLocaleString()} ฿)`
             : `ปล่อยกู้ ${borrower.fullName} โดย ${session?.username || "เจ้าหน้าที่"} (ยอดกู้ ${principal.toLocaleString()} ฿ หักค่าดำเนินการ ${processingFee} ฿ โอนจริง ${disbursedAmount.toLocaleString()} ฿)`,
+          createdAt: startDate,
         },
       });
 
@@ -197,6 +220,7 @@ export async function createLoanAction(input: CreateLoanInput) {
             amount: upfrontDeductionAmount,
             referenceId: loan.id,
             description: `รับดอกเบี้ยล่วงหน้างวดแรก ${borrower.fullName} (${upfrontDeductionAmount.toLocaleString()} ฿)`,
+            createdAt: startDate,
           },
         });
       }
@@ -217,6 +241,8 @@ export async function createLoanAction(input: CreateLoanInput) {
             isUpfrontDeduction,
             disbursedAmount,
             guarantorName,
+            startDate: startDate.toISOString(),
+            isBackdated: Boolean(inputStartDate),
           }),
         },
       });

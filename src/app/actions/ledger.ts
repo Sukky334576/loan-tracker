@@ -10,6 +10,7 @@ export async function addCapitalAction(params: {
   amount: number;
   type?: "CAPITAL_INJECTION" | "WITHDRAWAL";
   description?: string;
+  transactionDate?: string;
 }) {
   try {
     const session = await getSession();
@@ -18,10 +19,18 @@ export async function addCapitalAction(params: {
     }
 
     await syncDbFromBlob(true);
-    const { amount, type = "CAPITAL_INJECTION", description } = params;
+    const { amount, type = "CAPITAL_INJECTION", description, transactionDate } = params;
 
     if (!amount || amount <= 0) {
       return { success: false, error: "กรุณาระบุจำนวนเงินที่ถูกต้อง (มากกว่า 0 บาท)" };
+    }
+
+    let txDate = new Date();
+    if (transactionDate) {
+      const parsed = new Date(transactionDate.includes("T") ? transactionDate : `${transactionDate}T12:00:00`);
+      if (!isNaN(parsed.getTime())) {
+        txDate = parsed;
+      }
     }
 
     const defaultDesc =
@@ -34,6 +43,7 @@ export async function addCapitalAction(params: {
         type,
         amount: Number(amount),
         description: description?.trim() || defaultDesc,
+        createdAt: txDate,
       },
     });
 
@@ -41,6 +51,8 @@ export async function addCapitalAction(params: {
       action: type,
       amount: Number(amount),
       description: description?.trim() || defaultDesc,
+      transactionDate: txDate.toISOString(),
+      isBackdated: Boolean(transactionDate),
     });
 
     await saveDbToBlob();

@@ -12,6 +12,7 @@ export interface RecordPaymentInput {
   amountPaid: number;
   notes?: string;
   slipUrl?: string;
+  paidAt?: string;
 }
 
 export async function recordPaymentAction(input: RecordPaymentInput) {
@@ -79,9 +80,29 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
     const isSettlement = payType === "SETTLE" || newRemainingPrincipal <= 0;
     const termDays = loan.termType === "DAYS_7" ? 7 : 10;
 
-    const nextDueDate = new Date();
+    // Backdated payment support
+    let paymentDate = new Date();
+    if (input.paidAt) {
+      const parsed = new Date(input.paidAt.includes("T") ? input.paidAt : `${input.paidAt}T12:00:00`);
+      if (!isNaN(parsed.getTime())) {
+        paymentDate = parsed;
+      }
+    }
+
+    const nextDueDate = new Date(paymentDate);
     nextDueDate.setDate(nextDueDate.getDate() + termDays);
     nextDueDate.setHours(18, 0, 0, 0);
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const isStillOverdue = !isSettlement && nextDueDate.getTime() < startOfToday.getTime();
+    const newStatus = isSettlement
+      ? "SETTLED"
+      : underpaidCarryover > 0
+      ? "PARTIALLY_PAID"
+      : isStillOverdue
+      ? "OVERDUE"
+      : "ACTIVE";
 
     // 2. Execute Atomic Transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -104,7 +125,7 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
           underpaidCarryover,
           slipUrl: slipUrl ?? "/slip-placeholder.png",
           verificationStatus: "VERIFIED",
-          paidAt: new Date(),
+          paidAt: paymentDate,
           verifiedBy: actorUsername,
           collectedBy: actorUsername,
           notes: notes ?? (isSettlement ? "ปิดยอดสัญญาเรียบร้อย" : `ตัดดอกรอบที่ ${loan.rolloverCount + 1}`),
@@ -119,9 +140,9 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
           penaltyAccrued: loan.penaltyAccrued - penaltyPaid,
           accruedInterest: underpaidCarryover,
           rolloverCount: isSettlement ? loan.rolloverCount : loan.rolloverCount + 1,
-          status: isSettlement ? "SETTLED" : underpaidCarryover > 0 ? "PARTIALLY_PAID" : "ACTIVE",
+          status: newStatus,
           currentDueDate: isSettlement ? loan.currentDueDate : nextDueDate,
-          closedAt: isSettlement ? new Date() : null,
+          closedAt: isSettlement ? paymentDate : null,
         },
       });
 
@@ -163,6 +184,7 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
           description: isSettlement
             ? `รับปิดยอดสัญญา ${loan.borrower.fullName} โดย ${actorUsername} (${amountPaid.toLocaleString()} ฿)`
             : `รับชำระดอกเบี้ย/โปะต้น ${loan.borrower.fullName} โดย ${actorUsername} (${amountPaid.toLocaleString()} ฿)`,
+          createdAt: paymentDate,
         },
       });
 
@@ -181,6 +203,8 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
             penaltyPaid,
             remainingPrincipal: newRemainingPrincipal,
             isSettlement,
+            paidAt: paymentDate.toISOString(),
+            isBackdated: Boolean(input.paidAt),
           }),
         },
       });

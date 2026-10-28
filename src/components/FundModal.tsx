@@ -12,13 +12,23 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Loader2,
-  Sparkles
+  Sparkles,
+  Calendar
 } from "lucide-react";
 import { 
   addCapitalAction, 
   setFundBalanceAction, 
   resetDatabaseToProductionAction 
 } from "@/app/actions/ledger";
+
+function getIsoDateOffset(daysOffset: number = 0): string {
+  const d = new Date();
+  if (daysOffset !== 0) d.setDate(d.getDate() - daysOffset);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 interface FundModalProps {
   isOpen: boolean;
@@ -36,6 +46,7 @@ export function FundModal({
   const [activeTab, setActiveTab] = useState<"ADD" | "SET" | "RESET">("ADD");
   const [amount, setAmount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [txDate, setTxDate] = useState<string>(() => getIsoDateOffset(0));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -56,6 +67,7 @@ export function FundModal({
   const handleResetForm = () => {
     setAmount("");
     setNotes("");
+    setTxDate(getIsoDateOffset(0));
     setErrorMessage(null);
     setSuccessMessage(null);
   };
@@ -83,6 +95,7 @@ export function FundModal({
         amount: numAmount,
         type: "CAPITAL_INJECTION",
         description: notes.trim() || `เติมเงินทุนเข้ากองกลาง +${numAmount.toLocaleString()} ฿`,
+        transactionDate: txDate || undefined,
       });
       setIsSubmitting(false);
 
@@ -293,6 +306,47 @@ export function FundModal({
                     onChange={(e) => setNotes(e.target.value)}
                     className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none"
                   />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
+                      <Calendar className="size-3.5 text-zinc-500" />
+                      <span>วันที่ทำรายการ</span>
+                    </label>
+                    {txDate < getIsoDateOffset(0) && (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                        🕒 บันทึกย้อนหลัง
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={txDate}
+                    onChange={(e) => setTxDate(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  />
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {[
+                      { label: "วันนี้", days: 0 },
+                      { label: "เมื่อวาน", days: 1 },
+                      { label: "3 วันก่อน", days: 3 },
+                      { label: "7 วันก่อน", days: 7 },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={() => setTxDate(getIsoDateOffset(item.days))}
+                        className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all active:scale-95 cursor-pointer ${
+                          txDate === getIsoDateOffset(item.days)
+                            ? "bg-zinc-900 text-white font-bold"
+                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

@@ -31,6 +31,15 @@ import Link from "next/link";
 import { QuickAddBorrowerModal, CreatedBorrower } from "@/components/QuickAddBorrowerModal";
 import { formatThaiDate } from "@/lib/date";
 
+function getIsoDateOffset(daysOffset: number = 0): string {
+  const d = new Date();
+  if (daysOffset !== 0) d.setDate(d.getDate() - daysOffset);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export interface BorrowerOption {
   id: string;
   fullName: string;
@@ -70,6 +79,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
 
   // Loan Terms & Principal
   const [principal, setPrincipal] = useState<number>(1000);
+  const [startDate, setStartDate] = useState<string>(() => getIsoDateOffset(0));
   const [termType, setTermType] = useState<"DAYS_7" | "DAYS_10" | "CUSTOM">("DAYS_10");
   const [customDays, setCustomDays] = useState<number>(15);
   const [customInterestRate, setCustomInterestRate] = useState<number>(20);
@@ -190,9 +200,28 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
   const upfrontAmount = isUpfrontDeduction ? cycleInterest : 0;
   const netDisbursed = Math.max(0, principal - upfrontAmount - processingFee);
 
-  const dueDate = new Date();
+  const todayStr = getIsoDateOffset(0);
+  const isBackdated = Boolean(startDate && startDate < todayStr);
+
+  const parsedStartDate = startDate ? new Date(`${startDate}T09:00:00`) : new Date();
+  const validStartDate = isNaN(parsedStartDate.getTime()) ? new Date() : parsedStartDate;
+
+  const dueDate = new Date(validStartDate);
   dueDate.setDate(dueDate.getDate() + termDays);
+  dueDate.setHours(18, 0, 0, 0);
   const dueDateStr = formatThaiDate(dueDate, { showDayOfWeek: true });
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const isAlreadyOverdue = dueDate.getTime() < startOfToday.getTime();
+  const overdueDaysCount = isAlreadyOverdue
+    ? Math.abs(Math.ceil((dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const estimatedPenalty = overdueDaysCount * (dailyPenaltyRate || 50);
+
+  const daysAgo = isBackdated
+    ? Math.ceil((startOfToday.getTime() - validStartDate.getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   const effectiveAvailableCredit =
     borrowerMode === "EXISTING"
@@ -308,6 +337,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
         guarantorName: contractType === "GUARANTEED" ? guarantorName : undefined,
         guarantorPhone: contractType === "GUARANTEED" ? guarantorPhone : undefined,
         guarantorCitizenId: contractType === "GUARANTEED" ? guarantorCitizenId : undefined,
+        startDate: startDate || undefined,
       });
 
       setIsSubmitting(false);
@@ -787,6 +817,67 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
         </div>
       </div>
 
+      {/* 3.1 วันที่ทำสัญญา / วันที่ปล่อยกู้ (Start Date / กรอกย้อนหลัง) */}
+      <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-xs">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="size-4 text-zinc-700" />
+            <label className="text-xs font-bold text-zinc-800">
+              วันที่เริ่มสัญญา / วันที่ปล่อยกู้ (โอนเงิน)
+            </label>
+          </div>
+          {isBackdated && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-300">
+              🕒 กรอกย้อนหลัง ({daysAgo} วันก่อน)
+            </span>
+          )}
+        </div>
+
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        />
+
+        {/* Quick Date Pills */}
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {[
+            { label: "วันนี้ (Today)", days: 0 },
+            { label: "เมื่อวาน (-1)", days: 1 },
+            { label: "3 วันก่อน (-3)", days: 3 },
+            { label: "5 วันก่อน (-5)", days: 5 },
+            { label: "7 วันก่อน (-7)", days: 7 },
+            { label: "10 วันก่อน (-10)", days: 10 },
+          ].map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => setStartDate(getIsoDateOffset(item.days))}
+              className={`rounded-lg px-2.5 py-1 text-xs font-mono tabular-nums transition-all active:scale-95 shadow-2xs cursor-pointer ${
+                startDate === getIsoDateOffset(item.days)
+                  ? "bg-zinc-900 text-white font-bold"
+                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border border-zinc-200"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {isAlreadyOverdue && (
+          <div className="mt-2.5 rounded-xl border border-rose-200 bg-rose-50/80 p-2.5 text-[11px] text-rose-800 flex items-start gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+            <div>
+              <span className="font-bold">⚠️ วันครบกำหนดเลยผ่านมาแล้ว {overdueDaysCount} วัน:</span>
+              <p className="mt-0.5 text-rose-700">
+                เมื่อสร้างเสร็จ สัญญาจะเริ่มที่สถานะ <strong>"เกินกำหนด (OVERDUE)"</strong> ทันที พร้อมค่าปรับสะสมคำนวณอัตโนมัติ <strong>{estimatedPenalty.toLocaleString()} ฿</strong>
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 4. เลือกรอบสัญญา & ดอกเบี้ย (7 วัน / 10 วัน / กำหนดเอง Custom) */}
       <div className="rounded-2xl border border-zinc-200/90 bg-white p-4 shadow-xs">
         <label className="block text-xs font-bold text-zinc-800 mb-2">
@@ -1005,8 +1096,19 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
           </div>
 
           <div className="flex items-center justify-between border-t border-zinc-200 pt-2">
-            <span className="text-zinc-600">นัดชำระงวดแรก ({principal.toLocaleString()} ฿):</span>
-            <span className="font-bold text-zinc-900" suppressHydrationWarning>{dueDateStr}</span>
+            <span className="text-zinc-600">วันที่เริ่มสัญญา (Start Date):</span>
+            <span className="font-medium text-zinc-800" suppressHydrationWarning>
+              {formatThaiDate(validStartDate, { showDayOfWeek: true })}
+              {isBackdated && <span className="ml-1 text-[10px] text-amber-700 font-bold">(ย้อนหลัง {daysAgo} วัน)</span>}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-600">วันครบกำหนดชำระ ({principal.toLocaleString()} ฿):</span>
+            <span className={`font-bold ${isAlreadyOverdue ? "text-rose-600" : "text-zinc-900"}`} suppressHydrationWarning>
+              {dueDateStr}
+              {isAlreadyOverdue && <span className="ml-1 text-[10px] text-rose-600 font-bold">(เลยกำหนด {overdueDaysCount} วัน)</span>}
+            </span>
           </div>
 
           <div className="mt-1 rounded-lg bg-zinc-200/60 p-2 text-[11px] font-mono text-zinc-700">
