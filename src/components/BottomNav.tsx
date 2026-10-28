@@ -41,7 +41,7 @@ export function BottomNav({ currentRole, badgeCount }: BottomNavProps) {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-zinc-200/90 bg-white/95 backdrop-blur-md pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-zinc-200/80 bg-white/95 backdrop-blur-xl pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-1.5 shadow-[0_-4px_24px_rgba(0,0,0,0.07)]">
       <div className="mx-auto flex max-w-lg items-center justify-around px-2">
         {navItems.map((item) => {
           const isActive =
@@ -56,15 +56,16 @@ export function BottomNav({ currentRole, badgeCount }: BottomNavProps) {
                 key={item.href}
                 href={item.href}
                 onClick={() => triggerHaptic("medium")}
-                className="group relative -top-3.5 flex flex-col items-center select-none"
+                className="group relative -top-4 flex flex-col items-center select-none"
               >
                 <motion.div
                   whileTap={{ scale: 0.90 }}
-                  className="flex size-12 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg shadow-zinc-900/25 border-2 border-white"
+                  whileHover={{ scale: 1.05 }}
+                  className="flex size-13 items-center justify-center rounded-full bg-gradient-to-tr from-zinc-950 via-zinc-900 to-zinc-800 text-white shadow-xl shadow-zinc-900/35 ring-4 ring-white"
                 >
-                  <Icon className="size-6 stroke-[2.2]" />
+                  <Icon className="size-6 stroke-[2.4]" />
                 </motion.div>
-                <span className="mt-0.5 text-[10px] font-bold text-zinc-800">
+                <span className="mt-0.5 text-[10px] font-bold text-zinc-800 tracking-tight">
                   {item.label}
                 </span>
               </Link>
@@ -76,30 +77,37 @@ export function BottomNav({ currentRole, badgeCount }: BottomNavProps) {
               key={item.href}
               href={item.href}
               onClick={() => triggerHaptic("selection")}
-              className="relative flex flex-col items-center justify-center py-1.5 px-3 rounded-xl select-none"
+              className="relative flex flex-col items-center justify-center py-1 px-3 rounded-2xl select-none"
             >
               <motion.div
                 whileTap={{ scale: 0.88 }}
                 className="relative flex flex-col items-center"
               >
                 {isActive && (
-                  <motion.div
-                    layoutId="activeBottomTab"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                    className="absolute -inset-x-2 -inset-y-1 rounded-xl bg-zinc-100 -z-10"
-                  />
+                  <>
+                    <motion.div
+                      layoutId="activeBottomTab"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                      className="absolute -inset-x-2.5 -inset-y-1 rounded-2xl bg-zinc-100/90 -z-10"
+                    />
+                    <motion.div
+                      layoutId="activeBottomBar"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                      className="absolute -top-1.5 w-6 h-0.5 rounded-full bg-zinc-900"
+                    />
+                  </>
                 )}
 
                 <div className="relative">
                   <Icon
                     className={`size-5 transition-colors duration-200 ${
                       isActive
-                        ? "text-zinc-950 stroke-[2.2]"
+                        ? "text-zinc-950 stroke-[2.3]"
                         : "text-zinc-400 stroke-[1.8]"
                     }`}
                   />
                   {item.badge && item.badge > 0 && (
-                    <span className="absolute -top-1 -right-2 flex size-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-bold text-white shadow-xs">
+                    <span className="absolute -top-1 -right-2 flex size-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-extrabold text-white shadow-xs">
                       {item.badge}
                     </span>
                   )}

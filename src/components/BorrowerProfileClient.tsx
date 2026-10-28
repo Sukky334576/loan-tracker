@@ -255,38 +255,63 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
         </div>
 
         {/* Profile Header Card */}
-        <div className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-xs mb-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="size-12 rounded-2xl bg-zinc-900 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                {data.fullName.charAt(0)}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight text-zinc-900">
-                    {data.fullName}
-                  </h1>
-                  {data.nickname && (
-                    <span className="text-sm font-semibold text-zinc-500">
-                      ({data.nickname})
-                    </span>
-                  )}
-                  <span
-                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
-                      data.creditGrade === "VIP"
-                        ? "bg-purple-50 text-purple-700 border border-purple-200"
-                        : data.creditGrade === "GOOD"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : data.creditGrade === "WATCHLIST"
-                        ? "bg-amber-50 text-amber-800 border border-amber-300 font-extrabold"
-                        : data.creditGrade === "BLACKLIST"
-                        ? "bg-rose-50 text-rose-700 border border-rose-200 font-extrabold"
-                        : "bg-zinc-100 text-zinc-700 border border-zinc-200"
-                    }`}
-                  >
-                    ระดับ: {data.creditGrade}
-                  </span>
-                </div>
+        {(() => {
+          const initials = (data.nickname && data.nickname.trim()) || data.fullName.trim().slice(0, 2) || "LT";
+          const tierStyles = {
+            VIP: {
+              ring: "ring-2 ring-purple-400/80 shadow-purple-100",
+              bg: "bg-gradient-to-br from-purple-600 via-indigo-600 to-violet-700 text-white",
+              badge: "bg-purple-100 text-purple-800 border-purple-200 font-black shadow-2xs",
+            },
+            GOOD: {
+              ring: "ring-2 ring-emerald-400/80 shadow-emerald-100",
+              bg: "bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 text-white",
+              badge: "bg-emerald-100 text-emerald-800 border-emerald-200 font-black shadow-2xs",
+            },
+            NEW: {
+              ring: "ring-2 ring-blue-300 shadow-blue-100",
+              bg: "bg-gradient-to-br from-blue-500 via-sky-600 to-indigo-600 text-white",
+              badge: "bg-blue-50 text-blue-700 border-blue-200 font-bold",
+            },
+            WATCHLIST: {
+              ring: "ring-2 ring-amber-400/80 shadow-amber-100",
+              bg: "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 text-white",
+              badge: "bg-amber-100 text-amber-900 border-amber-300 font-black tracking-wide",
+            },
+            BLACKLIST: {
+              ring: "ring-2 ring-rose-500 shadow-rose-100",
+              bg: "bg-gradient-to-br from-rose-700 via-red-700 to-rose-900 text-white",
+              badge: "bg-rose-100 text-rose-900 border-rose-300 font-black tracking-wide animate-pulse",
+            },
+          }[data.creditGrade] ?? {
+            ring: "ring-2 ring-zinc-300",
+            bg: "bg-zinc-700 text-white",
+            badge: "bg-zinc-100 text-zinc-700 border-zinc-200 font-medium",
+          };
+
+          return (
+            <div className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-xs mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className={`relative flex size-12 shrink-0 items-center justify-center rounded-2xl font-black text-sm uppercase shadow-xs transition-transform duration-200 ${tierStyles.bg} ${tierStyles.ring}`}>
+                    {initials}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-xl font-black tracking-tight text-zinc-900">
+                        {data.fullName}
+                      </h1>
+                      {data.nickname && (
+                        <span className="text-sm font-semibold text-zinc-500">
+                          ({data.nickname})
+                        </span>
+                      )}
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs border ${tierStyles.badge}`}
+                      >
+                        ระดับ: {data.creditGrade}
+                      </span>
+                    </div>
 
                 <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-zinc-500">
                   <span className="flex items-center gap-1 font-mono">
@@ -344,6 +369,8 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
             </div>
           </div>
         </div>
+          );
+        })()}
 
         {/* Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
@@ -477,10 +504,11 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
               </div>
 
               {data.loans.length > 0 ? (
-                <div className="flex flex-col gap-2.5">
+                <div className="relative pl-6 sm:pl-7 before:absolute before:left-2.5 sm:before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-zinc-200 space-y-3.5">
                   {data.loans.map((loan) => {
                     const isSettled = loan.status === "SETTLED";
                     const isBadDebt = loan.status === "BAD_DEBT";
+                    const isOverdue = loan.status === "OVERDUE";
                     const createdDateStr = new Date(loan.createdAt).toLocaleDateString("th-TH", {
                       day: "numeric",
                       month: "short",
@@ -492,16 +520,27 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                     });
 
                     return (
-                      <div
-                        key={loan.id}
-                        className={`flex flex-col gap-2 rounded-xl border p-3.5 transition-all ${
+                      <div key={loan.id} className="relative">
+                        {/* Timeline Node Indicator */}
+                        <div className={`absolute -left-6 sm:-left-7 top-3.5 size-3.5 rounded-full border-2 border-white shadow-2xs ${
                           isSettled
-                            ? "border-emerald-200/80 bg-emerald-50/20"
+                            ? "bg-emerald-500"
                             : isBadDebt
-                            ? "border-rose-200/80 bg-rose-50/20"
-                            : "border-zinc-200 bg-zinc-50/70"
-                        }`}
-                      >
+                            ? "bg-rose-600"
+                            : isOverdue
+                            ? "bg-amber-500 animate-pulse"
+                            : "bg-blue-600"
+                        }`} />
+
+                        <div
+                          className={`flex flex-col gap-2 rounded-2xl border p-3.5 sm:p-4 transition-all shadow-xs ${
+                            isSettled
+                              ? "border-emerald-200/80 bg-emerald-50/20"
+                              : isBadDebt
+                              ? "border-rose-200/80 bg-rose-50/20"
+                              : "border-zinc-200 bg-zinc-50/70 hover:bg-white"
+                          }`}
+                        >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -598,7 +637,8 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                           </div>
                         )}
                       </div>
-                    );
+                    </div>
+                  );
                   })}
                 </div>
               ) : (
@@ -668,8 +708,11 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl border border-zinc-200 max-h-[90vh] overflow-y-auto"
+              className="relative z-10 w-full max-w-lg rounded-t-3xl sm:rounded-2xl bg-white p-5 shadow-2xl border border-zinc-200 max-h-[90vh] overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
             >
+              {/* Grab handle for mobile */}
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300/80 hover:bg-zinc-400 transition-colors sm:hidden cursor-grab" />
+
               <div className="flex items-center justify-between pb-3 border-b border-zinc-150">
                 <div className="flex items-center gap-2">
                   <Edit3 className="size-4 text-zinc-700" />
@@ -680,7 +723,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="flex size-7 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 cursor-pointer"
+                  className="flex size-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800 transition-colors cursor-pointer"
                 >
                   <X className="size-4" />
                 </button>
@@ -693,7 +736,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                 </div>
               )}
 
-              <form onSubmit={handleSaveBorrower} className="mt-4 space-y-3">
+              <form onSubmit={handleSaveBorrower} className="mt-4 space-y-3.5">
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-semibold text-zinc-700 mb-1">
@@ -703,8 +746,10 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       value={editCreditGrade}
                       disabled={userRole !== "OWNER"}
                       onChange={(e) => setEditCreditGrade(e.target.value as any)}
-                      className={`h-10 w-full rounded-xl border border-zinc-300 px-3 text-xs font-bold text-zinc-900 focus:outline-none ${
-                        userRole !== "OWNER" ? "bg-zinc-100 text-zinc-500 cursor-not-allowed" : "bg-white"
+                      className={`h-11 w-full rounded-xl border px-3 text-xs font-bold text-zinc-900 focus:outline-none shadow-2xs transition-all ${
+                        userRole !== "OWNER" 
+                          ? "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed" 
+                          : "border-zinc-200 bg-white focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 cursor-pointer"
                       }`}
                     >
                       <option value="NEW">NEW (ผู้กู้ใหม่)</option>
@@ -726,8 +771,10 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       disabled={userRole !== "OWNER"}
                       value={editCreditLimit}
                       onChange={(e) => setEditCreditLimit(e.target.value)}
-                      className={`h-10 w-full rounded-xl border border-zinc-300 px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none ${
-                        userRole !== "OWNER" ? "bg-zinc-100 text-zinc-500 cursor-not-allowed" : "bg-white"
+                      className={`h-11 w-full rounded-xl border px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none shadow-2xs transition-all ${
+                        userRole !== "OWNER" 
+                          ? "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed" 
+                          : "border-zinc-200 bg-white focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
                       }`}
                     />
                   </div>
@@ -742,7 +789,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       type="text"
                       value={editFullName}
                       onChange={(e) => setEditFullName(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                       required
                     />
                   </div>
@@ -755,7 +802,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       value={editNickname}
                       onChange={(e) => setEditNickname(e.target.value)}
                       placeholder="เช่น เอก"
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     />
                   </div>
                 </div>
@@ -769,7 +816,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       type="tel"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-mono text-zinc-900 focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                       required
                     />
                   </div>
@@ -782,7 +829,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       type="tel"
                       value={editBackupPhone}
                       onChange={(e) => setEditBackupPhone(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-mono text-zinc-900 focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     />
                   </div>
                 </div>
@@ -795,7 +842,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                     type="text"
                     value={editWorkplace}
                     onChange={(e) => setEditWorkplace(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   />
                 </div>
 
@@ -807,7 +854,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                     type="text"
                     value={editAddress}
                     onChange={(e) => setEditAddress(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   />
                 </div>
 
@@ -820,7 +867,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       type="text"
                       value={editGuarantorName}
                       onChange={(e) => setEditGuarantorName(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     />
                   </div>
                   <div>
@@ -831,7 +878,7 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                       type="tel"
                       value={editGuarantorPhone}
                       onChange={(e) => setEditGuarantorPhone(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-mono text-zinc-900 focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     />
                   </div>
                 </div>
@@ -867,18 +914,18 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-end gap-2 border-t border-zinc-150 pt-3">
+                <div className="mt-5 flex items-center justify-end gap-2 border-t border-zinc-150 pt-3">
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors"
+                    className="min-h-[44px] rounded-xl px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-zinc-800 disabled:opacity-50"
+                    className="min-h-[44px] flex items-center gap-1.5 rounded-xl bg-zinc-900 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-zinc-800 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <>

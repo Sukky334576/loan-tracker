@@ -129,7 +129,7 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
           </div>
         </div>
 
-        {/* Search Input */}
+        {/* Search Input with Clear Button */}
         <div className="relative mb-5 max-w-md">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-400 pointer-events-none" />
           <input
@@ -137,8 +137,18 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
             placeholder="ค้นหาชื่อลูกหนี้, เบอร์โทร, สถานที่ทำงาน..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-xs font-medium text-zinc-900 placeholder-zinc-400 hover:border-zinc-300 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 shadow-2xs transition-all duration-200"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-9 text-xs sm:text-sm font-medium text-zinc-900 placeholder-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all duration-200"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 size-6 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 cursor-pointer transition-colors"
+              title="ล้างคำค้นหา"
+            >
+              <span className="text-xs">✕</span>
+            </button>
+          )}
         </div>
 
         {/* Responsive Grid or Empty State */}
@@ -153,47 +163,82 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                 0
               );
 
+              const initials = b.fullName.trim().slice(0, 2) || "LT";
+
+              const tierStyles = {
+                VIP: {
+                  ring: "ring-2 ring-purple-400/80 shadow-purple-100",
+                  bg: "bg-gradient-to-br from-purple-600 via-indigo-600 to-violet-700 text-white",
+                  badge: "bg-purple-100 text-purple-800 border-purple-200 font-extrabold shadow-2xs",
+                },
+                GOOD: {
+                  ring: "ring-2 ring-emerald-400/80 shadow-emerald-100",
+                  bg: "bg-gradient-to-br from-emerald-600 via-teal-600 to-green-700 text-white",
+                  badge: "bg-emerald-100 text-emerald-800 border-emerald-200 font-extrabold shadow-2xs",
+                },
+                NEW: {
+                  ring: "ring-2 ring-blue-300 shadow-blue-100",
+                  bg: "bg-gradient-to-br from-blue-500 via-sky-600 to-indigo-600 text-white",
+                  badge: "bg-blue-50 text-blue-700 border-blue-200 font-bold",
+                },
+                WATCHLIST: {
+                  ring: "ring-2 ring-amber-400/80 shadow-amber-100",
+                  bg: "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 text-white",
+                  badge: "bg-amber-100 text-amber-900 border-amber-300 font-black tracking-wide",
+                },
+                BLACKLIST: {
+                  ring: "ring-2 ring-rose-500 shadow-rose-100",
+                  bg: "bg-gradient-to-br from-rose-700 via-red-700 to-rose-900 text-white",
+                  badge: "bg-rose-100 text-rose-900 border-rose-300 font-black tracking-wide animate-pulse",
+                },
+              }[b.creditGrade] ?? {
+                ring: "ring-2 ring-zinc-300",
+                bg: "bg-zinc-700 text-white",
+                badge: "bg-zinc-100 text-zinc-700 border-zinc-200 font-medium",
+              };
+
               return (
                 <div
                   key={b.id}
                   className="group rounded-2xl border border-zinc-200/90 bg-white p-4.5 shadow-xs transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-md hover:border-zinc-300"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/borrowers/${b.id}`}
-                          className="text-sm font-bold text-zinc-900 truncate hover:text-blue-600 hover:underline transition-colors"
-                        >
-                          {b.fullName}
-                        </Link>
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold transition-transform duration-150 group-hover:scale-105 ${
-                            b.creditGrade === "GOOD"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : b.creditGrade === "BLACKLIST"
-                              ? "bg-rose-50 text-rose-700 border border-rose-200"
-                              : "bg-zinc-100 text-zinc-700 border border-zinc-200"
-                          }`}
-                        >
-                          {b.creditGrade}
-                        </span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Avatar with Tier Gradient Ring */}
+                      <div className={`relative flex size-10 shrink-0 items-center justify-center rounded-xl font-black text-xs uppercase shadow-xs transition-transform duration-200 group-hover:scale-105 ${tierStyles.bg} ${tierStyles.ring}`}>
+                        {initials}
                       </div>
 
-                      <p className="mt-1 text-xs text-zinc-500 flex items-center gap-1.5">
-                        <Phone className="size-3 text-zinc-400" />
-                        <span>{b.phone}</span>
-                      </p>
-                      {b.workplace && (
-                        <p className="text-[11px] text-zinc-500 truncate max-w-xs mt-0.5">
-                          {b.workplace}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href={`/borrowers/${b.id}`}
+                            className="text-sm font-bold text-zinc-900 truncate hover:text-blue-600 transition-colors"
+                          >
+                            {b.fullName}
+                          </Link>
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] border transition-transform duration-150 ${tierStyles.badge}`}
+                          >
+                            {b.creditGrade}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 text-xs text-zinc-500 flex items-center gap-1.5">
+                          <Phone className="size-3 text-zinc-400 shrink-0" />
+                          <span>{b.phone}</span>
                         </p>
-                      )}
+                        {b.workplace && (
+                          <p className="text-[11px] text-zinc-500 truncate max-w-xs mt-0.5">
+                            {b.workplace}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className="text-[10px] font-medium text-zinc-400">เงินต้นค้างรวม</span>
-                      <p className="font-mono text-sm font-bold tabular-nums text-zinc-900 group-hover:text-black transition-colors">
+                      <span className="text-[10px] font-semibold text-zinc-400">เงินต้นค้างรวม</span>
+                      <p className="font-mono text-base font-extrabold tabular-nums text-zinc-900 group-hover:text-black transition-colors">
                         {totalRemaining.toLocaleString()} ฿
                       </p>
                       <span className="text-[10px] text-zinc-500">
@@ -202,16 +247,16 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between border-t border-zinc-150 pt-2 text-[11px]">
-                    <span className="text-zinc-500">
+                  <div className="mt-3.5 flex items-center justify-between border-t border-zinc-150 pt-2.5 text-[11px]">
+                    <span className="text-zinc-500 font-medium">
                       สัญญาที่จบแล้ว:{" "}
-                      <strong className="text-zinc-800">{b.completedCycles} รอบ</strong>
+                      <strong className="text-zinc-800 font-bold">{b.completedCycles} รอบ</strong>
                     </span>
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-1.5">
                       <Link
                         href={`/borrowers/${b.id}`}
-                        className="flex items-center gap-1 text-zinc-500 hover:text-zinc-900 font-semibold transition-colors"
+                        className="min-h-[34px] flex items-center gap-1 text-zinc-600 hover:text-zinc-950 font-bold px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors"
                         title="ดูข้อมูลและประวัติการกู้"
                       >
                         <UserCheck className="size-3.5" />
@@ -221,7 +266,7 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                       <button
                         type="button"
                         onClick={() => setBorrowerToDelete(b)}
-                        className="flex items-center gap-1 text-zinc-400 hover:text-rose-600 font-semibold transition-colors cursor-pointer"
+                        className="min-h-[34px] flex items-center gap-1 text-zinc-400 hover:text-rose-600 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                         title="ลบลูกหนี้"
                       >
                         <Trash2 className="size-3.5" />
@@ -230,9 +275,9 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
 
                       <a
                         href={`tel:${b.phone}`}
-                        className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-bold transition-all duration-150 hover:translate-x-0.5 active:scale-95"
+                        className="min-h-[34px] flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80 transition-all hover:bg-emerald-100 active:scale-95"
                       >
-                        <span>โทรหา</span>
+                        <span>โทร</span>
                         <ArrowUpRight className="size-3" />
                       </a>
                     </div>
@@ -301,7 +346,7 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                   type="button"
                   disabled={isDeleting}
                   onClick={() => setBorrowerToDelete(null)}
-                  className="rounded-xl px-3.5 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="min-h-[40px] rounded-xl px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   ยกเลิก
                 </button>
@@ -309,7 +354,7 @@ export function BorrowersClient({ initialBorrowers }: BorrowersClientProps) {
                   type="button"
                   disabled={isDeleting}
                   onClick={handleConfirmDelete}
-                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="min-h-[40px] flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isDeleting ? (
                     <>

@@ -140,7 +140,7 @@ export function LoginForm() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={selectedRole === "OWNER" ? "farafull" : "agent1"}
-                className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 pl-10 pr-3.5 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-600 focus:outline-none transition-all"
+                className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3.5 text-xs font-medium text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
               />
             </div>
           </div>
@@ -159,7 +159,7 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={selectedRole === "OWNER" ? "กรอกรหัสผ่านนายทุน (farafull2026)" : "กรอกรหัสผ่าน (agent12026 หรือ 1234)"}
-                className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 pl-10 pr-3.5 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-600 focus:outline-none transition-all"
+                className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-10 pr-3.5 text-xs font-medium text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
               />
             </div>
           </div>

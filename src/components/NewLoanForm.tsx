@@ -521,8 +521,8 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                     setSelectedBorrowerId(e.target.value);
                     if (fieldErrors.borrower) setFieldErrors((prev) => ({ ...prev, borrower: "" }));
                   }}
-                  className={`w-full rounded-xl border bg-zinc-50/70 px-3 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 transition-all ${
-                    fieldErrors.borrower ? "border-rose-400" : "border-zinc-300"
+                  className={`h-11 w-full rounded-xl border bg-white px-3 text-xs font-semibold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all cursor-pointer ${
+                    fieldErrors.borrower ? "border-rose-400" : "border-zinc-200"
                   }`}
                 >
                   <option value="" disabled>-- กรุณาเลือกลูกหนี้ --</option>
@@ -554,26 +554,41 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
             )}
 
             {selectedBorrower && (
-              <div className="mt-2.5 border-t border-zinc-150 pt-2 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                  <span>
-                    วงเงินทั้งหมด:{" "}
-                    <strong className="text-zinc-800">
-                      {selectedBorrower.creditLimit.toLocaleString()} ฿
-                    </strong>
-                  </span>
-                  <span>
-                    คงเหลือปล่อยได้:{" "}
+              <div className="mt-2.5 border-t border-zinc-150 pt-2.5 space-y-2">
+                <div className="flex items-center justify-between rounded-xl bg-zinc-50 p-2.5 border border-zinc-200/80 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-extrabold border ${
+                        selectedBorrower.creditGrade === "VIP"
+                          ? "bg-purple-100 text-purple-800 border-purple-200"
+                          : selectedBorrower.creditGrade === "GOOD"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          : selectedBorrower.creditGrade === "WATCHLIST"
+                          ? "bg-amber-100 text-amber-900 border-amber-300 font-black"
+                          : selectedBorrower.creditGrade === "BLACKLIST"
+                          ? "bg-rose-100 text-rose-900 border-rose-300 font-black animate-pulse"
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                      }`}
+                    >
+                      {selectedBorrower.creditGrade}
+                    </span>
+                    <span className="text-zinc-500 text-[11px]">
+                      วงเงิน: <strong className="text-zinc-800 font-bold">{selectedBorrower.creditLimit.toLocaleString()} ฿</strong>
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-zinc-500 text-[11px] mr-1">คงเหลือ:</span>
                     <strong
-                      className={
+                      className={`font-mono text-xs font-black tabular-nums ${
                         selectedBorrower.availableCredit > 0
-                          ? "text-emerald-700 font-bold"
-                          : "text-rose-700 font-bold"
-                      }
+                          ? "text-emerald-700"
+                          : "text-rose-700"
+                      }`}
                     >
                       {selectedBorrower.availableCredit.toLocaleString()} ฿
                     </strong>
-                  </span>
+                  </div>
                 </div>
 
                 {/* Prominent Watchlist / Blacklist Warning & Lock */}
@@ -659,8 +674,8 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                   setWalkinFullName(e.target.value);
                   if (fieldErrors.walkinFullName) setFieldErrors((prev) => ({ ...prev, walkinFullName: "" }));
                 }}
-                className={`h-10 w-full rounded-xl border bg-white px-3 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400 ${
-                  fieldErrors.walkinFullName ? "border-rose-400 bg-rose-50/30" : "border-zinc-300"
+                className={`h-11 w-full rounded-xl border bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all ${
+                  fieldErrors.walkinFullName ? "border-rose-400 bg-rose-50/30" : "border-zinc-200"
                 }`}
               />
               {fieldErrors.walkinFullName && (
@@ -674,7 +689,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                   เบอร์โทรศัพท์ <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400 pointer-events-none" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400 pointer-events-none" />
                   <input
                     type="tel"
                     placeholder="08X-XXX-XXXX"
@@ -683,8 +698,8 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                       setWalkinPhone(e.target.value);
                       if (fieldErrors.walkinPhone) setFieldErrors((prev) => ({ ...prev, walkinPhone: "" }));
                     }}
-                    className={`h-10 w-full rounded-xl border bg-white pl-9 pr-3 text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400 ${
-                      fieldErrors.walkinPhone ? "border-rose-400 bg-rose-50/30" : "border-zinc-300"
+                    className={`h-11 w-full rounded-xl border bg-white pl-9 pr-3 text-xs font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all ${
+                      fieldErrors.walkinPhone ? "border-rose-400 bg-rose-50/30" : "border-zinc-200"
                     }`}
                   />
                 </div>
@@ -712,7 +727,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                   </button>
                 </div>
                 <div className="relative">
-                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400 pointer-events-none" />
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400 pointer-events-none" />
                   <input
                     type="text"
                     maxLength={13}
@@ -722,8 +737,8 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                       setWalkinCitizenId(e.target.value);
                       if (fieldErrors.walkinCitizenId) setFieldErrors((prev) => ({ ...prev, walkinCitizenId: "" }));
                     }}
-                    className={`h-10 w-full rounded-xl border bg-white pl-9 pr-3 text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400 ${
-                      fieldErrors.walkinCitizenId ? "border-rose-400 bg-rose-50/30" : "border-zinc-300"
+                    className={`h-11 w-full rounded-xl border bg-white pl-9 pr-3 text-xs font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all ${
+                      fieldErrors.walkinCitizenId ? "border-rose-400 bg-rose-50/30" : "border-zinc-200"
                     }`}
                   />
                 </div>
@@ -743,7 +758,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                   placeholder="เช่น ตลาดสด ซอย 4"
                   value={walkinWorkplace}
                   onChange={(e) => setWalkinWorkplace(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
 
@@ -757,7 +772,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                   step="500"
                   value={walkinCreditLimit}
                   onChange={(e) => setWalkinCreditLimit(Number(e.target.value))}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-mono font-bold text-zinc-900 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs font-mono font-bold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -837,7 +852,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
         />
 
         {/* Quick Date Pills */}
@@ -954,8 +969,8 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                     if (fieldErrors.customDays) setFieldErrors((prev) => ({ ...prev, customDays: "" }));
                   }}
                   placeholder="เช่น 15"
-                  className={`w-full rounded-lg border bg-white px-3 py-1.5 text-xs font-mono font-bold text-zinc-900 focus:outline-none ${
-                    fieldErrors.customDays ? "border-rose-400" : "border-zinc-300"
+                  className={`h-11 w-full rounded-xl border bg-white px-3 text-xs font-mono font-bold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all ${
+                    fieldErrors.customDays ? "border-rose-400" : "border-zinc-200"
                   }`}
                 />
                 {fieldErrors.customDays && (
@@ -978,8 +993,8 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
                       if (fieldErrors.customInterestRate) setFieldErrors((prev) => ({ ...prev, customInterestRate: "" }));
                     }}
                     placeholder="เช่น 20"
-                    className={`w-full rounded-lg border bg-white px-3 pr-7 py-1.5 text-xs font-mono font-bold text-zinc-900 focus:outline-none ${
-                      fieldErrors.customInterestRate ? "border-rose-400" : "border-zinc-300"
+                    className={`h-11 w-full rounded-xl border bg-white px-3 pr-7 text-xs font-mono font-bold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all ${
+                      fieldErrors.customInterestRate ? "border-rose-400" : "border-zinc-200"
                     }`}
                   />
                   <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-zinc-400 pointer-events-none" />
@@ -1030,7 +1045,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
               value={contractPlace}
               onChange={(e) => setContractPlace(e.target.value)}
               placeholder="บ้านเป้า"
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-900 focus:outline-none"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
             />
           </div>
           <div>
@@ -1042,7 +1057,7 @@ export function NewLoanForm({ borrowers, cashBalance = 0, userRole = "OWNER" }: 
               value={dailyPenaltyRate || ""}
               onChange={(e) => setDailyPenaltyRate(Number(e.target.value))}
               placeholder="50"
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-mono text-zinc-900 focus:outline-none"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
             />
           </div>
         </div>

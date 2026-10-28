@@ -141,7 +141,7 @@ export function QuickAddBorrowerModal({
           className="relative z-10 w-full max-w-lg rounded-t-3xl sm:rounded-2xl border-t sm:border border-zinc-200 bg-white p-5 shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
         >
           {/* Grab handle for mobile */}
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300 sm:hidden" />
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300/80 hover:bg-zinc-400 transition-colors sm:hidden cursor-grab" />
 
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-zinc-150">
@@ -162,7 +162,7 @@ export function QuickAddBorrowerModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 cursor-pointer"
+              className="flex size-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800 transition-colors cursor-pointer"
             >
               <X className="size-4" />
             </button>
@@ -177,7 +177,7 @@ export function QuickAddBorrowerModal({
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3.5">
             <div>
               <label className="block text-xs font-semibold text-zinc-700 mb-1">
                 ชื่อ-นามสกุล ลูกหนี้ <span className="text-rose-500">*</span>
@@ -187,7 +187,7 @@ export function QuickAddBorrowerModal({
                 placeholder="เช่น นายสมชาย หมายมั่น"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 required
               />
             </div>
@@ -198,14 +198,14 @@ export function QuickAddBorrowerModal({
                   เบอร์โทรศัพท์ <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400 pointer-events-none" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400 pointer-events-none" />
                   <input
                     type="tel"
                     inputMode="tel"
                     placeholder="เช่น 0812345678"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white pl-9 pr-3 text-xs font-mono font-medium text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-xs font-mono font-medium text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     required
                   />
                 </div>
@@ -225,7 +225,7 @@ export function QuickAddBorrowerModal({
                   </button>
                 </div>
                 <div className="relative">
-                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400 pointer-events-none" />
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400 pointer-events-none" />
                   <input
                     type="text"
                     inputMode="numeric"
@@ -233,7 +233,7 @@ export function QuickAddBorrowerModal({
                     placeholder="เลข 13 หลัก"
                     value={citizenId}
                     onChange={(e) => setCitizenId(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white pl-9 pr-3 text-xs font-mono font-medium text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-xs font-mono font-medium text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     required
                   />
                 </div>
@@ -246,13 +246,13 @@ export function QuickAddBorrowerModal({
                   สถานที่ทำงาน / อาชีพ (ตามตัว)
                 </label>
                 <div className="relative">
-                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400 pointer-events-none" />
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400 pointer-events-none" />
                   <input
                     type="text"
                     placeholder="เช่น ร้านกาแฟ ตลาดสด ซอย 4"
                     value={workplace}
                     onChange={(e) => setWorkplace(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-xs text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-xs text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   />
                 </div>
               </div>
@@ -267,7 +267,7 @@ export function QuickAddBorrowerModal({
                   placeholder="2000"
                   value={creditLimit}
                   onChange={(e) => setCreditLimit(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-xs font-bold text-zinc-900 tabular-nums focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-xs font-bold text-zinc-900 tabular-nums focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -277,7 +277,7 @@ export function QuickAddBorrowerModal({
               whileTap={{ scale: 0.98 }}
               disabled={isSubmitting}
               type="submit"
-              className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-xs font-bold text-white shadow-md transition-all hover:bg-zinc-800 disabled:opacity-50 select-none cursor-pointer"
+              className="mt-3 flex min-h-[44px] h-11 w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 text-xs font-bold text-white shadow-xs transition-all hover:bg-zinc-800 active:scale-95 disabled:opacity-50 select-none cursor-pointer"
             >
               {isSubmitting ? (
                 <>

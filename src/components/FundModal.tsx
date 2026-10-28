@@ -177,7 +177,7 @@ export function FundModal({
           className="relative z-10 w-full max-w-lg rounded-t-3xl sm:rounded-2xl border-t sm:border border-zinc-200 bg-white p-5 shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
         >
           {/* Grab handle for mobile */}
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300 sm:hidden" />
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300/80 hover:bg-zinc-400 transition-colors sm:hidden cursor-grab" />
 
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-zinc-150">
@@ -201,7 +201,7 @@ export function FundModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 cursor-pointer"
+              className="flex size-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800 transition-colors cursor-pointer"
             >
               <X className="size-4" />
             </button>
@@ -278,7 +278,7 @@ export function FundModal({
                     placeholder="เช่น 50000"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base font-bold text-zinc-900 tabular-nums focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-base font-bold text-zinc-900 tabular-nums focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     required
                   />
                   <div className="mt-2 flex gap-1.5 flex-wrap">
@@ -287,7 +287,7 @@ export function FundModal({
                         key={v}
                         type="button"
                         onClick={() => setAmount(String(v))}
-                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition-colors cursor-pointer"
+                        className="min-h-[34px] rounded-xl bg-zinc-100 hover:bg-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-700 transition-colors cursor-pointer active:scale-95 shadow-2xs"
                       >
                         +{v.toLocaleString()} ฿
                       </button>
@@ -304,7 +304,7 @@ export function FundModal({
                     placeholder="เช่น เติมทุนหมุนเวียนรอบสัปดาห์, โอนจาก บช. ธ.กรุงเทพ"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   />
                 </div>
 
@@ -324,7 +324,7 @@ export function FundModal({
                     type="date"
                     value={txDate}
                     onChange={(e) => setTxDate(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   />
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {[
@@ -337,7 +337,7 @@ export function FundModal({
                         key={item.label}
                         type="button"
                         onClick={() => setTxDate(getIsoDateOffset(item.days))}
-                        className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all active:scale-95 cursor-pointer ${
+                        className={`min-h-[32px] rounded-xl px-3 py-1 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
                           txDate === getIsoDateOffset(item.days)
                             ? "bg-zinc-900 text-white font-bold"
                             : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -370,7 +370,7 @@ export function FundModal({
                     placeholder="เช่น 100000"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-base font-bold text-zinc-900 tabular-nums focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900/5"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-base font-bold text-zinc-900 tabular-nums focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                     required
                   />
                 </div>
@@ -384,7 +384,7 @@ export function FundModal({
                     placeholder="เช่น ตั้งค่ายอดเงินทุนตั้งต้นเริ่มต้นระบบ"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   />
                 </div>
               </>

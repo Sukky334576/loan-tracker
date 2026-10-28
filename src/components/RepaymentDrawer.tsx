@@ -307,7 +307,7 @@ export function RepaymentDrawer({
             className="relative z-10 w-full max-w-lg rounded-t-3xl sm:rounded-2xl border-t sm:border border-zinc-200 bg-white p-5 shadow-2xl pb-[calc(env(safe-area-inset-bottom)+1.5rem)] max-h-[90vh] overflow-y-auto"
           >
             {/* Grab Handle for Mobile */}
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300 sm:hidden" />
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-300/80 hover:bg-zinc-400 transition-colors sm:hidden cursor-grab" />
 
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-zinc-150">
@@ -688,42 +688,57 @@ export function RepaymentDrawer({
                 </div>
 
                 {/* Waterfall Breakdown Card */}
-                <div className="rounded-2xl border border-zinc-200 bg-slate-50/90 p-3.5 text-xs">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-zinc-500 font-medium">ลำดับการหักเงิน (Waterfall)</span>
-                    <span className="text-[11px] font-semibold text-zinc-700">
-                      รอบ {loan.termType === "DAYS_7" ? "7 วัน (15%)" : "10 วัน (20%)"} (รอบที่ {loan.rolloverCount}/3)
+                <div className="rounded-2xl border border-zinc-200/90 bg-slate-50/90 p-4 text-xs shadow-2xs">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-zinc-700 font-bold flex items-center gap-1.5">
+                      <span className="flex size-4 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-black text-zinc-700">↓</span>
+                      ลำดับตัดชำระ (Waterfall Priority)
+                    </span>
+                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 border border-zinc-200/80">
+                      รอบ {loan.termType === "DAYS_7" ? "7 วัน (15%)" : "10 วัน (20%)"} • รอบ {loan.rolloverCount}/3
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-1.5 border-t border-zinc-200/80 pt-2 text-[11px]">
+                  <div className="flex flex-col gap-2 border-t border-zinc-200/80 pt-2.5 text-xs">
                     {loan.penaltyAccrued > 0 && (
-                      <div className="flex justify-between text-rose-600 font-medium">
-                        <span>1. หักค่าปรับค้างชำระ:</span>
+                      <div className="flex items-center justify-between text-rose-700 bg-rose-50/80 px-2.5 py-1.5 rounded-lg border border-rose-200/60 font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-1.5 rounded-full bg-rose-600 shrink-0" />
+                          1. หักค่าปรับค้างชำระ:
+                        </span>
                         <span className="font-mono tabular-nums font-bold">+{loan.penaltyAccrued.toFixed(2)} ฿</span>
                       </div>
                     )}
                     {loan.accruedInterest > 0 && (
-                      <div className="flex justify-between text-amber-700 font-medium">
-                        <span>2. หักดอกค้างรอบก่อน:</span>
+                      <div className="flex items-center justify-between text-amber-800 bg-amber-50/80 px-2.5 py-1.5 rounded-lg border border-amber-200/60 font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-1.5 rounded-full bg-amber-600 shrink-0" />
+                          2. หักดอกค้างรอบก่อน:
+                        </span>
                         <span className="font-mono tabular-nums font-bold">+{loan.accruedInterest.toFixed(2)} ฿</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-zinc-700">
-                      <span>3. ดอกเบี้ยรอบปัจจุบัน:</span>
-                      <span className="font-mono tabular-nums font-bold">{cycleInterest.toLocaleString()} ฿</span>
+                    <div className="flex items-center justify-between text-zinc-700 px-2.5 py-1 font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <span className="size-1.5 rounded-full bg-zinc-400 shrink-0" />
+                        3. ดอกเบี้ยรอบปัจจุบัน:
+                      </span>
+                      <span className="font-mono tabular-nums font-bold text-zinc-900">{cycleInterest.toLocaleString()} ฿</span>
                     </div>
 
                     {payType === "SETTLE" && (
-                      <div className="flex justify-between text-emerald-700 font-semibold border-t border-dashed border-zinc-200 pt-1">
-                        <span>4. เงินต้นทั้งหมด:</span>
+                      <div className="flex items-center justify-between text-emerald-800 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/60 font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-1.5 rounded-full bg-emerald-600 shrink-0" />
+                          4. เงินต้นคงค้าง (ปิดยอด):
+                        </span>
                         <span className="font-mono tabular-nums font-bold">{loan.remainingPrincipal.toLocaleString()} ฿</span>
                       </div>
                     )}
 
-                    <div className="mt-1 flex items-baseline justify-between border-t border-zinc-200 pt-2 text-sm font-bold text-zinc-900">
-                      <span>ยอดที่ต้องชำระ:</span>
-                      <span className={`font-mono text-xl tabular-nums font-extrabold ${
+                    <div className="mt-1 flex items-baseline justify-between border-t border-zinc-200 pt-2.5 text-sm font-bold text-zinc-900">
+                      <span>ยอดรับเงินรวม:</span>
+                      <span className={`font-mono text-2xl tabular-nums font-black ${
                         payType === "SETTLE" ? "text-emerald-700" : "text-amber-800"
                       }`}>
                         {currentAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
@@ -788,7 +803,7 @@ export function RepaymentDrawer({
                         key={item.label}
                         type="button"
                         onClick={() => setPaymentDate(getIsoDateOffset(item.days))}
-                        className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-all active:scale-95 cursor-pointer ${
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-95 cursor-pointer min-h-[30px] ${
                           paymentDate === getIsoDateOffset(item.days)
                             ? "bg-zinc-900 text-white font-bold"
                             : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -802,33 +817,59 @@ export function RepaymentDrawer({
 
                 {/* Slip Upload Zone */}
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-                    แนบภาพสลิปโอนเงิน (BBL 546-7-396726)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-zinc-700">
+                      แนบภาพสลิปโอนเงิน (BBL 546-7-396726)
+                    </label>
+                    {slipPreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSlipFile(null);
+                          setSlipPreview(null);
+                          setSlipBase64(null);
+                        }}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-medium cursor-pointer"
+                      >
+                        ลบสลิปออก
+                      </button>
+                    )}
+                  </div>
 
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 p-3 hover:bg-zinc-100 transition-colors">
+                  <label className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-3.5 transition-all min-h-[58px] ${
+                    slipPreview 
+                      ? "border-emerald-300 bg-emerald-50/30 hover:bg-emerald-50/50" 
+                      : "border-zinc-200 bg-zinc-50/80 hover:bg-zinc-100 hover:border-zinc-300"
+                  }`}>
                     {slipPreview ? (
                       <div className="flex items-center gap-3 w-full">
                         <img
                           src={slipPreview}
                           alt="Slip Preview"
-                          className="size-12 rounded-lg object-cover border border-zinc-200 shadow-xs"
+                          className="size-14 rounded-xl object-cover border border-emerald-200 shadow-xs shrink-0"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-zinc-800 truncate">
-                            {slipFile?.name}
+                          <p className="text-xs font-bold text-zinc-800 truncate">
+                            {slipFile?.name || "สลิปโอนเงิน"}
                           </p>
-                          <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
-                            <Sparkles className="size-3" />
-                            แนบสลิปเรียบร้อย
+                          <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
+                            <Sparkles className="size-3 text-emerald-600 shrink-0" />
+                            บีบอัดพร้อมบันทึก
                           </span>
                         </div>
-                        <span className="text-xs text-zinc-500 underline">เปลี่ยน</span>
+                        <span className="text-xs font-bold text-blue-600 hover:text-blue-800 underline shrink-0 px-2 py-1 rounded-lg hover:bg-blue-50">
+                          เปลี่ยนรูป
+                        </span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-zinc-500 text-xs">
-                        <Camera className="size-4 text-zinc-400" />
-                        <span>แตะเพื่อถ่ายรูปสลิป หรือเลือกจากอัลบั้ม</span>
+                      <div className="flex items-center gap-2.5 text-zinc-600 text-xs py-1">
+                        <div className="size-8 rounded-full bg-zinc-200/70 flex items-center justify-center text-zinc-600 shrink-0">
+                          <Camera className="size-4" />
+                        </div>
+                        <div className="text-left">
+                          <span className="font-semibold block text-zinc-800">แตะเพื่อถ่ายรูปสลิป หรือเลือกจากอัลบั้ม</span>
+                          <span className="text-[10px] text-zinc-400">รองรับ JPG, PNG (ระบบจะบีบอัดให้อัตโนมัติ)</span>
+                        </div>
                       </div>
                     )}
                     <input

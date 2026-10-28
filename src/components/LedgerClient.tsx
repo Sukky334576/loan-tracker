@@ -590,60 +590,77 @@ export function LedgerClient({
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
                 {/* 1. Principal Recovered */}
-                <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
-                  <div className="flex items-center justify-between text-emerald-800 text-xs font-semibold">
-                    <span>เงินต้นที่ได้รับคืนสะสม</span>
-                    <Receipt className="size-4 text-emerald-600" />
+                <div className="rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-white via-emerald-50/40 to-teal-50/30 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-300">
+                  <div className="flex items-center justify-between text-zinc-500 text-xs">
+                    <span className="font-bold text-zinc-700">เงินต้นคืนสะสม</span>
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300/60 shadow-2xs">
+                      <Receipt className="size-3.5" />
+                    </div>
                   </div>
-                  <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-emerald-800">
+                  <p className="mt-2.5 font-mono text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-emerald-800">
                     {formatPrivateAmount(pnlMetrics.principalRecovered, isPrivacy)}
                   </p>
-                  <p className="text-[11px] text-emerald-700/80 mt-1">
-                    หมุนกลับเข้ากองกลางจากการตัดต้น & ปิดสัญญา
-                  </p>
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    <span className="text-emerald-700 font-medium">ตัดต้น & ปิดยอด</span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
+                      เงินต้น
+                    </span>
+                  </div>
                 </div>
 
                 {/* 2. Interest Profit */}
-                <div className="rounded-2xl border border-blue-200/80 bg-blue-50/60 p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
-                  <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
-                    <span>กำไรดอกเบี้ยรับสะสม</span>
-                    <DollarSign className="size-4 text-blue-600" />
+                <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-blue-300">
+                  <div className="flex items-center justify-between text-zinc-500 text-xs">
+                    <span className="font-bold text-zinc-700">กำไรดอกเบี้ยรับ</span>
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700 ring-1 ring-blue-300/60 shadow-2xs">
+                      <DollarSign className="size-3.5" />
+                    </div>
                   </div>
-                  <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-blue-800">
+                  <p className="mt-2.5 font-mono text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-blue-800">
                     {formatPrivateAmount(pnlMetrics.interestProfit, isPrivacy)}
                   </p>
-                  <p className="text-[11px] text-blue-700/80 mt-1">
-                    ดอกเบี้ยหักล่วงหน้า + ดอกเบี้ยต่อรอบสัญญา
-                  </p>
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    <span className="text-blue-700 font-medium">หักหน้า + ต่อดอก</span>
+                    <span className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.2 text-[9px] font-bold text-blue-800">
+                      ดอกเบี้ย
+                    </span>
+                  </div>
                 </div>
 
                 {/* 3. Late Fee Income */}
-                <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
-                  <div className="flex items-center justify-between text-amber-800 text-xs font-semibold">
-                    <span>รายได้ค่าปรับล่าช้า</span>
-                    <AlertTriangle className="size-4 text-amber-600" />
+                <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-white via-amber-50/40 to-orange-50/30 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-300">
+                  <div className="flex items-center justify-between text-zinc-500 text-xs">
+                    <span className="font-bold text-zinc-700">ค่าปรับล่าช้า</span>
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 ring-1 ring-amber-300/60 shadow-2xs">
+                      <AlertTriangle className="size-3.5" />
+                    </div>
                   </div>
-                  <p className="mt-2 font-mono text-2xl font-bold tracking-tight tabular-nums text-amber-800">
+                  <p className="mt-2.5 font-mono text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-amber-800">
                     {formatPrivateAmount(pnlMetrics.lateFeeIncome, isPrivacy)}
                   </p>
-                  <p className="text-[11px] text-amber-700/80 mt-1">
-                    ค่าปรับรายวันสะสมที่เรียกเก็บได้จริง
-                  </p>
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    <span className="text-amber-700 font-medium">ค่าปรับรายวัน</span>
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-900">
+                      ค่าปรับ
+                    </span>
+                  </div>
                 </div>
 
-                {/* 4. Net Profit */}
-                <div className="rounded-2xl border border-zinc-900 bg-zinc-900 text-white p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="flex items-center justify-between text-zinc-300 text-xs font-semibold">
-                    <span>กำไรสุทธิรวม (Net Profit)</span>
-                    <TrendingUp className="size-4 text-emerald-400" />
+                {/* 4. Net Profit Hero Card */}
+                <div className="rounded-2xl border border-zinc-900 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 text-white p-4 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ring-1 ring-zinc-900/30">
+                  <div className="flex items-center justify-between text-zinc-300 text-xs">
+                    <span className="font-bold text-zinc-100">กำไรสุทธิ (Net Profit)</span>
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400/40 shadow-2xs">
+                      <TrendingUp className="size-3.5" />
+                    </div>
                   </div>
-                  <p className="mt-2 font-mono text-2xl font-extrabold tracking-tight tabular-nums text-emerald-400">
+                  <p className="mt-2.5 font-mono text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-emerald-400">
                     {formatPrivateAmount(pnlMetrics.netProfit, isPrivacy)}
                   </p>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1">
-                    <span>(ดอกเบี้ย + ค่าปรับ) - หนี้สูญ</span>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-zinc-400 font-medium">
+                    <span>(ดอก + ปรับ) - สูญ</span>
                     {pnlMetrics.badDebtLoss > 0 && (
-                      <span className="text-rose-400 font-bold">
+                      <span className="text-rose-400 font-bold bg-rose-950/80 px-1.5 py-0.2 rounded border border-rose-800">
                         ตัดสูญ -{pnlMetrics.badDebtLoss.toLocaleString()} ฿
                       </span>
                     )}
@@ -868,8 +885,8 @@ export function LedgerClient({
               <div className="pt-3 flex flex-col gap-3">
                 {/* Date Presets */}
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="text-[11px] font-semibold text-zinc-500 flex items-center gap-1 mr-1">
-                    <Calendar className="size-3.5" />
+                  <span className="text-xs font-bold text-zinc-700 flex items-center gap-1 mr-1">
+                    <Calendar className="size-3.5 text-zinc-500" />
                     ช่วงเวลา:
                   </span>
                   {[
@@ -886,10 +903,10 @@ export function LedgerClient({
                         triggerHaptic("selection");
                         setDateFilterPreset(preset.id as any);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                         dateFilterPreset === preset.id
-                          ? "bg-zinc-900 text-white shadow-2xs"
-                          : "bg-zinc-100 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200"
+                          ? "bg-zinc-900 text-white shadow-xs ring-2 ring-zinc-900/10"
+                          : "bg-zinc-100 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/80 border border-transparent"
                       }`}
                     >
                       {preset.label}
@@ -899,20 +916,20 @@ export function LedgerClient({
 
                 {/* Custom Date Pickers */}
                 {dateFilterPreset === "CUSTOM" && (
-                  <div className="flex flex-wrap items-center gap-2 p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 text-xs">
-                    <span className="text-[11px] font-semibold text-zinc-500">ตั้งแต่วันที่:</span>
+                  <div className="flex flex-wrap items-center gap-2.5 p-3 bg-zinc-50/80 rounded-2xl border border-zinc-200/90 text-xs shadow-2xs">
+                    <span className="text-xs font-semibold text-zinc-700">ตั้งแต่วันที่:</span>
                     <input
                       type="date"
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="px-2 py-1 rounded-lg border border-zinc-300 bg-white text-zinc-800 text-xs focus:ring-1 focus:ring-zinc-500 focus:outline-none"
+                      className="h-10 px-3 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-xs font-mono font-medium focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 focus:outline-none shadow-2xs"
                     />
-                    <span className="text-[11px] font-semibold text-zinc-500">ถึง:</span>
+                    <span className="text-xs font-semibold text-zinc-700">ถึง:</span>
                     <input
                       type="date"
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="px-2 py-1 rounded-lg border border-zinc-300 bg-white text-zinc-800 text-xs focus:ring-1 focus:ring-zinc-500 focus:outline-none"
+                      className="h-10 px-3 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-xs font-mono font-medium focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 focus:outline-none shadow-2xs"
                     />
                     {(customStartDate || customEndDate) && (
                       <button
@@ -921,7 +938,7 @@ export function LedgerClient({
                           setCustomStartDate("");
                           setCustomEndDate("");
                         }}
-                        className="text-[11px] text-rose-600 hover:underline ml-1"
+                        className="min-h-[36px] px-2.5 py-1 text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                       >
                         ล้างวันที่
                       </button>

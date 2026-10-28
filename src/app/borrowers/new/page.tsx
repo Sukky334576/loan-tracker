@@ -221,7 +221,7 @@ function BorrowerFormContent() {
                   onChange={(e) =>
                     setFormData({ ...formData, citizenId: e.target.value.replace(/\D/g, "") })
                   }
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 font-mono text-sm text-zinc-900 tabular-nums focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-sm text-zinc-900 tabular-nums focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   required
                 />
               </div>
@@ -235,7 +235,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น นายสมศักดิ์ มั่งคั่ง"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   required
                 />
               </div>
@@ -249,7 +249,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น ช่างเอก, เจ๊หน่อย"
                   value={formData.nickname}
                   onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
 
@@ -263,7 +263,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น 081-234-5678"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm font-mono text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                   required
                 />
               </div>
@@ -277,7 +277,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น ตลาดรังสิต ล็อค B12"
                   value={formData.workplace}
                   onChange={(e) => setFormData({ ...formData, workplace: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
 
@@ -290,7 +290,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น 99/12 ต.ประชาธิปัตย์ อ.ธัญบุรี จ.ปทุมธานี"
                   value={formData.addressOnCard}
                   onChange={(e) => setFormData({ ...formData, addressOnCard: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -313,7 +313,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น https://facebook.com/username"
                   value={formData.facebookUrl}
                   onChange={(e) => setFormData({ ...formData, facebookUrl: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
 
@@ -326,7 +326,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น 089-111-2233 (พี่สาว)"
                   value={formData.backupPhone}
                   onChange={(e) => setFormData({ ...formData, backupPhone: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm font-mono text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
 
@@ -339,7 +339,7 @@ function BorrowerFormContent() {
                   placeholder="ชื่อ-นามสกุล คนค้ำ"
                   value={formData.guarantorName}
                   onChange={(e) => setFormData({ ...formData, guarantorName: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
 
@@ -352,7 +352,7 @@ function BorrowerFormContent() {
                   placeholder="เช่น 089-999-8888"
                   value={formData.guarantorPhone}
                   onChange={(e) => setFormData({ ...formData, guarantorPhone: e.target.value })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-sm font-mono text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-mono text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -454,7 +454,7 @@ function BorrowerFormContent() {
                   step="500"
                   value={formData.creditLimit}
                   onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 font-mono text-sm font-bold text-zinc-900 tabular-nums focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 font-mono text-sm font-bold text-zinc-900 tabular-nums focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all"
                 />
                 <span className="text-[10px] text-zinc-400 mt-1 block">
                   * ลูกค้าใหม่ (NEW) แนะนำไม่เกิน 2,000 บาท
@@ -473,7 +473,7 @@ function BorrowerFormContent() {
                       creditGrade: e.target.value as any,
                     })
                   }
-                  className="h-10 w-full rounded-xl border border-zinc-300 bg-zinc-50/70 px-3 text-xs font-bold text-zinc-900 focus:bg-white focus:border-zinc-500 focus:outline-none"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-900 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 shadow-2xs transition-all cursor-pointer"
                 >
                   <option value="NEW">NEW (ลูกค้าใหม่ เพดาน 2,000)</option>
                   <option value="GOOD">GOOD (ลูกค้าชั้นดี 3 สัญญาขึ้นไป)</option>
