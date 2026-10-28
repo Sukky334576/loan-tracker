@@ -17,14 +17,13 @@ export default async function LedgerPage() {
   await syncDbFromBlob(true);
   const session = await getSession();
 
-  if (session?.role !== "OWNER") {
-    redirect("/");
+  if (!session) {
+    redirect("/login");
   }
 
-  // 1. Transactions
+  // 1. Transactions (All entries for complete date-range and monthly reporting)
   const transactions = await prisma.cashLedger.findMany({
     orderBy: { createdAt: "desc" },
-    take: 100,
   });
 
   let totalInjected = 0;
@@ -163,24 +162,26 @@ export default async function LedgerPage() {
     };
   });
 
-  // 4. Audit Logs
+  // 4. Audit Logs (Restricted to OWNER only)
   let auditLogs: AuditLogItem[] = [];
-  try {
-    const rawLogs = await prisma.auditLog.findMany({
-      include: { user: true },
-      orderBy: { createdAt: "desc" },
-      take: 60,
-    });
-    auditLogs = rawLogs.map((log) => ({
-      id: log.id,
-      actor: log.user?.username || log.userId,
-      action: log.action,
-      targetId: log.targetId,
-      details: log.details,
-      createdAt: log.createdAt.toISOString(),
-    }));
-  } catch (err) {
-    console.error("Failed to fetch audit logs:", err);
+  if (session.role === "OWNER") {
+    try {
+      const rawLogs = await prisma.auditLog.findMany({
+        include: { user: true },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+      auditLogs = rawLogs.map((log) => ({
+        id: log.id,
+        actor: log.user?.username || log.userId,
+        action: log.action,
+        targetId: log.targetId,
+        details: log.details,
+        createdAt: log.createdAt.toISOString(),
+      }));
+    } catch (err) {
+      console.error("Failed to fetch audit logs:", err);
+    }
   }
 
   const mappedTransactions: LedgerTransaction[] = transactions.map((tx) => ({

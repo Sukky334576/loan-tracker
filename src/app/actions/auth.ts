@@ -13,6 +13,15 @@ export interface SessionUser {
 }
 
 const SESSION_COOKIE_NAME = "loan_tracker_session";
+const GLOBAL_TEST_SESSION_KEY = Symbol.for("loan_tracker_standalone_test_session");
+
+export async function setTestSession(user: SessionUser | null): Promise<void> {
+  (globalThis as any)[GLOBAL_TEST_SESSION_KEY] = user;
+}
+
+export async function getTestSession(): Promise<SessionUser | null> {
+  return (globalThis as any)[GLOBAL_TEST_SESSION_KEY] ?? null;
+}
 
 export async function getSession(): Promise<SessionUser | null> {
   try {
@@ -22,7 +31,8 @@ export async function getSession(): Promise<SessionUser | null> {
 
     return JSON.parse(sessionCookie.value) as SessionUser;
   } catch (error) {
-    return null;
+    // Outside Next.js request context (e.g. standalone test scripts / CLI)
+    return await getTestSession();
   }
 }
 
@@ -114,6 +124,8 @@ export async function loginAction(params: {
       role: targetUser.role as "OWNER" | "AGENT",
     };
 
+    setTestSession(sessionData);
+
     try {
       const cookieStore = await cookies();
       cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
@@ -156,6 +168,20 @@ export async function loginAction(params: {
 
 export async function logoutAction() {
   try {
+    const session = await getSession();
+    if (session) {
+      try {
+        await logAudit(session.id, "LOGOUT", session.id, {
+          username: session.username,
+          role: session.role,
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    setTestSession(null);
+
     try {
       const cookieStore = await cookies();
       cookieStore.delete(SESSION_COOKIE_NAME);

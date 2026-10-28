@@ -14,7 +14,7 @@ export async function addCapitalAction(params: {
 }) {
   try {
     const session = await getSession();
-    if (session && session.role !== "OWNER") {
+    if (!session || session.role !== "OWNER") {
       return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการจัดการเงินกองกลาง" };
     }
 
@@ -73,7 +73,7 @@ export async function setFundBalanceAction(params: {
 }) {
   try {
     const session = await getSession();
-    if (session && session.role !== "OWNER") {
+    if (!session || session.role !== "OWNER") {
       return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการปรับยอดกองกลาง" };
     }
 
@@ -142,7 +142,7 @@ export async function resetDatabaseToProductionAction(params?: {
 }) {
   try {
     const session = await getSession();
-    if (session && session.role !== "OWNER") {
+    if (!session || session.role !== "OWNER") {
       return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการล้างข้อมูลระบบ" };
     }
 

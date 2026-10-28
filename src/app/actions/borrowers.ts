@@ -284,6 +284,17 @@ export async function updateBorrowerAction(input: UpdateBorrowerInput) {
       return { success: false, error: "ไม่พบข้อมูลลูกหนี้ในระบบ" };
     }
 
+    if (session?.role === "AGENT") {
+      const isTryingToChangeGrade = updates.creditGrade !== undefined && updates.creditGrade !== borrower.creditGrade;
+      const isTryingToChangeLimit = updates.creditLimit !== undefined && Number(updates.creditLimit) !== borrower.creditLimit;
+      if (isTryingToChangeGrade || isTryingToChangeLimit) {
+        return {
+          success: false,
+          error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการปรับเปลี่ยนระดับเครดิตหรือเพดานวงเงินกู้",
+        };
+      }
+    }
+
     const updated = await prisma.borrower.update({
       where: { id: borrowerId },
       data: {
@@ -331,8 +342,12 @@ export async function updateBorrowerAction(input: UpdateBorrowerInput) {
 
 export async function deleteBorrowerAction(borrowerId: string) {
   try {
-    await syncDbFromBlob(true);
     const session = await getSession();
+    if (!session || session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการลบข้อมูลลูกหนี้ออกจากระบบ" };
+    }
+
+    await syncDbFromBlob(true);
 
     if (!borrowerId) {
       return { success: false, error: "ไม่พบรหัสลูกหนี้" };
@@ -373,8 +388,12 @@ export async function deleteBorrowerAction(borrowerId: string) {
           action: "BORROWER_DELETE",
           targetId: borrower.id,
           details: JSON.stringify({
-            deletedBy: session?.username || "USER",
+            deletedBy: session?.username || "OWNER",
             borrowerName: borrower.fullName,
+            citizenId: borrower.citizenId,
+            phone: borrower.phone,
+            creditGrade: borrower.creditGrade,
+            deletedLoansCount: borrower.loans.length,
           }),
         },
       });

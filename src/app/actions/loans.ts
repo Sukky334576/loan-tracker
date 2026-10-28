@@ -265,6 +265,11 @@ export async function createLoanAction(input: CreateLoanInput) {
 
 export async function deleteLoanAction(loanId: string) {
   try {
+    const session = await getSession();
+    if (!session || session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการลบหรือยกเลิกสัญญาเงินกู้" };
+    }
+
     await syncDbFromBlob(true);
 
     if (!loanId) {
@@ -291,12 +296,15 @@ export async function deleteLoanAction(loanId: string) {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        userId: loan.agentId,
-        action: "DELETE_LOAN",
+        userId: session?.id ?? loan.agentId,
+        action: "LOAN_DELETE",
         targetId: loan.id,
         details: JSON.stringify({
+          deletedBy: session?.username || "OWNER",
           borrowerName: loan.borrower?.fullName,
+          initialPrincipal: loan.initialPrincipal,
           remainingPrincipal: loan.remainingPrincipal,
+          status: loan.status,
         }),
       },
     });
@@ -317,7 +325,7 @@ export async function deleteLoanAction(loanId: string) {
 export async function writeOffBadDebtAction(loanId: string, reason?: string) {
   try {
     const session = await getSession();
-    if (session && session.role !== "OWNER") {
+    if (!session || session.role !== "OWNER") {
       return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการตัดจำหน่ายหนี้สูญ" };
     }
 

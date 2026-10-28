@@ -697,12 +697,15 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                      ระดับเครดิต (Tier)
+                      ระดับเครดิต (Tier) {userRole !== "OWNER" && <span className="text-[10px] text-amber-600 font-normal">(เฉพาะนายทุน)</span>}
                     </label>
                     <select
                       value={editCreditGrade}
+                      disabled={userRole !== "OWNER"}
                       onChange={(e) => setEditCreditGrade(e.target.value as any)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 text-xs font-bold text-zinc-900 focus:outline-none"
+                      className={`h-10 w-full rounded-xl border border-zinc-300 px-3 text-xs font-bold text-zinc-900 focus:outline-none ${
+                        userRole !== "OWNER" ? "bg-zinc-100 text-zinc-500 cursor-not-allowed" : "bg-white"
+                      }`}
                     >
                       <option value="NEW">NEW (ผู้กู้ใหม่)</option>
                       <option value="GOOD">GOOD (ชั้นดี/ตรงเวลา 3 สัญญา)</option>
@@ -714,15 +717,18 @@ export function BorrowerProfileClient({ borrower, userRole }: Props) {
 
                   <div>
                     <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                      เพดานวงเงินกู้สูงสุด (บาท)
+                      เพดานวงเงินกู้สูงสุด (บาท) {userRole !== "OWNER" && <span className="text-[10px] text-amber-600 font-normal">(เฉพาะนายทุน)</span>}
                     </label>
                     <input
                       type="number"
                       min="0"
                       step="500"
+                      disabled={userRole !== "OWNER"}
                       value={editCreditLimit}
                       onChange={(e) => setEditCreditLimit(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-zinc-300 bg-white px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none"
+                      className={`h-10 w-full rounded-xl border border-zinc-300 px-3 font-mono text-xs font-bold text-zinc-900 focus:outline-none ${
+                        userRole !== "OWNER" ? "bg-zinc-100 text-zinc-500 cursor-not-allowed" : "bg-white"
+                      }`}
                     />
                   </div>
                 </div>

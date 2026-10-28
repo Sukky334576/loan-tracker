@@ -2,15 +2,20 @@ import { prisma } from "@/lib/prisma";
 
 export type AuditActionType =
   | "LOGIN"
+  | "LOGOUT"
   | "BORROWER_CREATE"
   | "BORROWER_UPDATE"
   | "BORROWER_DELETE"
   | "LOAN_CREATE"
   | "LOAN_DELETE"
   | "LOAN_BAD_DEBT"
+  | "CONTRACT_SIGN"
+  | "CONTRACT_CLEAR_SIGN"
   | "PAYMENT_COLLECT"
   | "LEDGER_ADJUST"
-  | "DB_RESET";
+  | "DB_RESET"
+  | "THERMAL_PRINT"
+  | "EXPORT_DATA";
 
 /**
  * Logs an important system event into the AuditLog table.

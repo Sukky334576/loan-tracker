@@ -11,13 +11,20 @@ import {
   Download, 
   ShieldCheck,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Receipt,
+  Smartphone,
+  Copy,
+  X
 } from "lucide-react";
 import { bahtText } from "@/lib/bahttext";
 import { formatThaiDate } from "@/lib/date";
 import { LenderSignature } from "@/components/LenderSignature";
 import { SignaturePad } from "@/components/SignaturePad";
 import { saveSignatureAction, clearSignatureAction } from "@/app/actions/contract";
+import { triggerHaptic } from "@/lib/haptics";
+import { formatLoanContractThermalText, triggerThermalPrint } from "@/lib/thermal-printer";
+import { recordAuditLogAction } from "@/app/actions/audit";
 
 export interface LoanContractProps {
   loan: {
@@ -55,7 +62,10 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
   const [borrowerSig, setBorrowerSig] = useState<string | null>(loan.borrowerSignature ?? null);
   const [guarantorSig, setGuarantorSig] = useState<string | null>(loan.guarantorSignature ?? null);
   const [copied, setCopied] = useState(false);
+  const [copiedEscPos, setCopiedEscPos] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
+  const [thermalWidth, setThermalWidth] = useState<58 | 80>(58);
 
   const startDateObj = new Date(loan.startDate);
   const dueDateObj = new Date(loan.currentDueDate);
@@ -79,6 +89,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
 
   // Copy Signing Link
   const handleCopyLink = async () => {
+    triggerHaptic("light");
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const signUrl = `${origin}/sign/${loan.id}`;
     
@@ -104,11 +115,57 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
   };
 
   const handlePrint = () => {
+    triggerHaptic("medium");
     window.print();
+  };
+
+  const handlePrintThermal = async () => {
+    triggerHaptic("medium");
+    await recordAuditLogAction("THERMAL_PRINT", loan.id, {
+      type: "LOAN_CONTRACT",
+      paperWidth: `${thermalWidth}mm`,
+      loanId: loan.id,
+      borrowerName: loan.borrower.fullName,
+    }).catch(() => {});
+    triggerThermalPrint(thermalWidth);
+  };
+
+  const handleCopyEscPos = async () => {
+    triggerHaptic("light");
+    const contractDateStr = `${dayStr} ${monthStr} ${yearStr}`;
+    const text = formatLoanContractThermalText({
+      loanId: loan.id,
+      contractPlace: loan.contractPlace || "บ้านเป้า",
+      contractDate: contractDateStr,
+      borrowerName: loan.borrower.fullName,
+      borrowerCitizenId: loan.borrower.citizenId,
+      borrowerPhone: loan.borrower.phone,
+      lenderName: "นางสาวฟิลิปดา ภาปัญญา",
+      principal: loan.initialPrincipal,
+      termType: loan.termType,
+      interestRate: loan.interestRate,
+      isUpfrontDeduction: loan.isUpfrontDeduction,
+      upfrontDeductionAmount: loan.upfrontDeductionAmount,
+      disbursedAmount: loan.disbursedAmount,
+      currentDueDate: dueDateSummary,
+      dailyPenaltyRate: loan.dailyPenaltyRate || 50,
+      guarantorName: loan.guarantorName,
+      guarantorPhone: loan.guarantorPhone,
+      signedAt: borrowerSig ? new Date().toLocaleString("th-TH") : null,
+    }, thermalWidth);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedEscPos(true);
+      setTimeout(() => setCopiedEscPos(false), 2500);
+    } catch {
+      // Fallback
+    }
   };
 
   const handleSaveSignature = async (dataUrl: string) => {
     if (!activeSignRole) return;
+    triggerHaptic("heavy");
     setIsSaving(true);
 
     if (activeSignRole === "borrower") {
@@ -123,6 +180,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
       signatureDataUrl: dataUrl,
     });
 
+    triggerHaptic("success");
     setIsSaving(false);
     setActiveSignRole(null);
   };
@@ -131,6 +189,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
     if (!confirm(`คุณต้องการลบลายเซ็นของ${role === "borrower" ? "ผู้กู้" : "ผู้รับรอง"} เพื่อเซ็นใหม่ใช่หรือไม่?`)) {
       return;
     }
+    triggerHaptic("medium");
     if (role === "borrower") setBorrowerSig(null);
     if (role === "guarantor") setGuarantorSig(null);
 
@@ -203,11 +262,25 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
               )}
             </button>
 
+            {/* Thermal Mini-Slip (58mm/80mm) */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("medium");
+                setIsThermalModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-blue-300 bg-blue-50 px-3.5 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100 transition-all active:scale-95 shadow-2xs cursor-pointer"
+              title="พิมพ์สลิปสัญญาฉบับย่อสำหรับเครื่องพิมพ์พกพาความร้อน (58mm/80mm)"
+            >
+              <Receipt className="size-3.5 text-blue-700" />
+              <span>สลิปสัญญา 58/80mm</span>
+            </button>
+
             {/* Print / Save PDF */}
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white hover:bg-zinc-800 transition-all active:scale-95 shadow-xs"
+              className="flex items-center gap-1.5 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-bold text-white hover:bg-zinc-800 transition-all active:scale-95 shadow-xs cursor-pointer"
             >
               <Printer className="size-3.5" />
               <span>พิมพ์สัญญา (A4 / PDF)</span>
@@ -217,7 +290,7 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
       </div>
 
       {/* Contract Paper A4 Container */}
-      <div className="mx-auto max-w-4xl px-2 sm:px-4">
+      <div className="mx-auto max-w-4xl px-2 sm:px-4 hide-on-thermal">
         <div 
           className="mx-auto bg-white p-8 sm:p-14 shadow-md border border-zinc-200 print:border-none print:shadow-none print:p-0 print:m-0 text-zinc-900 font-serif leading-relaxed"
           style={{ minHeight: "297mm", maxWidth: "210mm" }}
@@ -497,19 +570,325 @@ export function LoanContract({ loan, isClientSignMode = false }: LoanContractPro
         </div>
       </div>
 
-      {/* Signature Modal */}
-      {activeSignRole && (
-        <SignaturePad
-          title={
-            activeSignRole === "borrower"
-              ? `ลงลายมือชื่อผู้กู้ (${loan.borrower.fullName})`
-              : `ลงลายมือชื่อผู้รับรอง (${loan.guarantorName || "ผู้รับรอง"})`
-          }
-          subtitle="กรุณาใช้นิ้วมือหรือปากกาเซ็นชื่อในกรอบ แล้วกดปุ่มบันทึก"
-          onSave={handleSaveSignature}
-          onClose={() => setActiveSignRole(null)}
-        />
+      {/* Thermal Mini-Contract Modal (58mm/80mm Portable Bluetooth) */}
+      {isThermalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hide-on-thermal">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+              <div className="flex items-center gap-2">
+                <div className="size-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+                  <Receipt className="size-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900">สลิปสัญญาเงินกู้ความร้อน</h3>
+                  <p className="text-[10px] text-zinc-500">ESC/POS 58mm / 80mm Bluetooth</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsThermalModalOpen(false)}
+                className="size-8 flex items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Paper Width Selector */}
+            <div className="mt-3 flex items-center justify-between text-xs px-1">
+              <span className="text-zinc-500 font-semibold flex items-center gap-1">
+                <Smartphone className="size-3.5 text-zinc-400" />
+                <span>ขนาดกระดาษพิมพ์:</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("selection");
+                    setThermalWidth(58);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    thermalWidth === 58 ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  }`}
+                >
+                  58 mm (พกพา)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("selection");
+                    setThermalWidth(80);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    thermalWidth === 80 ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                  }`}
+                >
+                  80 mm (ตั้งโต๊ะ)
+                </button>
+              </div>
+            </div>
+
+            {/* Thermal Mini-Slip Preview */}
+            <div 
+              className={`mt-3 mx-auto w-full bg-white border border-zinc-300 rounded-xl p-3.5 shadow-inner text-black font-mono text-[11px] leading-snug ${
+                thermalWidth === 58 ? "max-w-[280px]" : "max-w-[360px]"
+              }`}
+            >
+              <div className="text-center pb-2 border-b border-dashed border-zinc-400">
+                <p className="font-extrabold text-xs tracking-wider">LT LOAN TRACKER</p>
+                <p className="text-[10px]">สัญญากู้ยืมเงิน (ฉบับย่อ/มินิสลิป)</p>
+                <p className="text-[9px] text-zinc-500">สาขา เกษตรสมบูรณ์ ชัยภูมิ</p>
+              </div>
+
+              <div className="py-2 border-b border-dashed border-zinc-400 space-y-1">
+                <div className="flex justify-between">
+                  <span>เลขที่สัญญา:</span>
+                  <span className="font-bold">{loan.id.slice(-8).toUpperCase()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>วันที่ทำสัญญา:</span>
+                  <span>{dayStr} {monthStr} {yearStr}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>สถานที่ทำ:</span>
+                  <span>{loan.contractPlace || "บ้านเป้า"}</span>
+                </div>
+              </div>
+
+              <div className="py-2 border-b border-dashed border-zinc-400 space-y-1">
+                <div className="flex justify-between">
+                  <span>ผู้ให้กู้:</span>
+                  <span className="font-semibold">น.ส.ฟิลิปดา ภาปัญญา</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ผู้กู้:</span>
+                  <span className="font-bold">{loan.borrower.fullName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>เลขบัตร:</span>
+                  <span>{loan.borrower.citizenId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>เบอร์โทร:</span>
+                  <span>{loan.borrower.phone}</span>
+                </div>
+                {loan.guarantorName && (
+                  <div className="flex justify-between pt-1 border-t border-dotted border-zinc-300">
+                    <span>ผู้ค้ำ/รับรอง:</span>
+                    <span>{loan.guarantorName}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="py-2 border-b border-dashed border-zinc-400 space-y-1">
+                <div className="flex justify-between font-bold">
+                  <span>ยอดเงินกู้:</span>
+                  <span>{loan.initialPrincipal.toLocaleString()} ฿</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>รอบสัญญา:</span>
+                  <span>{loan.termType === "DAYS_7" ? "ทุก 7 วัน (15%)" : "ทุก 10 วัน (20%)"}</span>
+                </div>
+                {loan.isUpfrontDeduction && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>หักดอกล่วงหน้า:</span>
+                      <span>-{loan.upfrontDeductionAmount.toLocaleString()} ฿</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-emerald-800">
+                      <span>ยอดโอนจริง:</span>
+                      <span>{loan.disbursedAmount.toLocaleString()} ฿</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between font-bold pt-1 border-t border-dotted border-zinc-300">
+                  <span>กำหนดชำระคืน:</span>
+                  <span>{dueDateSummary}</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span>เบี้ยปรับล่าช้า:</span>
+                  <span>{loan.dailyPenaltyRate || 50} ฿/วัน</span>
+                </div>
+              </div>
+
+              <div className="py-2 border-b border-dashed border-zinc-400 text-[10px] text-center text-zinc-700 leading-tight">
+                ผู้กู้ได้รับเงินกู้ครบถ้วนแล้ว ตกลงชำระเงินต้นและดอกเบี้ยตามกำหนด หากผิดนัดยินยอมชดใช้ค่าเสียหายและเบี้ยปรับตามกฎหมาย
+              </div>
+
+              {/* Signatures in Thermal Slip */}
+              <div className="py-2 border-b border-dashed border-zinc-400 grid grid-cols-2 gap-2 text-center text-[10px]">
+                <div>
+                  <p className="font-semibold mb-1">ลายเซ็นผู้ให้กู้</p>
+                  <div className="h-10 flex items-center justify-center">
+                    <LenderSignature className="h-9 w-auto object-contain grayscale contrast-200" />
+                  </div>
+                  <p className="text-[9px] text-zinc-500">(ฟิลิปดา)</p>
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">ลายเซ็นผู้กู้</p>
+                  <div className="h-10 flex items-center justify-center">
+                    {borrowerSig ? (
+                      <img src={borrowerSig} alt="sig" className="h-9 max-w-full object-contain grayscale contrast-200" />
+                    ) : (
+                      <span className="text-[9px] text-amber-700 italic">ยังไม่ลงนาม</span>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-zinc-500">({loan.borrower.fullName})</p>
+                </div>
+              </div>
+
+              <div className="pt-2 text-center text-[9px] text-zinc-500 space-y-0.5">
+                <p>สัญญาอิเล็กทรอนิกส์ตาม พ.ร.บ.ธุรกรรมฯ</p>
+                <p>ESC/POS Thermal Contract v1.0</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handlePrintThermal}
+                className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 transition-colors cursor-pointer shadow-xs"
+              >
+                <Printer className="size-4" />
+                <span>พิมพ์สลิป ({thermalWidth}mm)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyEscPos}
+                className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
+              >
+                {copiedEscPos ? (
+                  <>
+                    <Check className="size-4 text-emerald-600" />
+                    <span>คัดลอกแล้ว!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-4 text-zinc-500" />
+                    <span>คัดลอกข้อความ</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* Isolated Thermal Print Section for Loan Contract (Rendered in continuous roll when print-thermal is active) */}
+      <div id="thermal-print-container" className="hidden show-on-thermal">
+        <div 
+          className="bg-white p-2 text-black font-mono text-[11px] leading-tight"
+          style={{ width: thermalWidth === 58 ? "54mm" : "74mm", margin: "0 auto" }}
+        >
+          <div className="text-center pb-2 border-b border-dashed border-black">
+            <p className="font-extrabold text-xs">LT LOAN TRACKER</p>
+            <p className="text-[10px]">สัญญากู้ยืมเงิน (ฉบับย่อ/มินิสลิป)</p>
+            <p className="text-[9px]">สาขา เกษตรสมบูรณ์ ชัยภูมิ</p>
+          </div>
+
+          <div className="py-2 border-b border-dashed border-black space-y-1">
+            <div className="flex justify-between">
+              <span>เลขที่สัญญา:</span>
+              <span className="font-bold">{loan.id.slice(-8).toUpperCase()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>วันที่ทำสัญญา:</span>
+              <span>{dayStr} {monthStr} {yearStr}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>สถานที่ทำ:</span>
+              <span>{loan.contractPlace || "บ้านเป้า"}</span>
+            </div>
+          </div>
+
+          <div className="py-2 border-b border-dashed border-black space-y-1">
+            <div className="flex justify-between">
+              <span>ผู้ให้กู้:</span>
+              <span>น.ส.ฟิลิปดา ภาปัญญา</span>
+            </div>
+            <div className="flex justify-between">
+              <span>ผู้กู้:</span>
+              <span className="font-bold">{loan.borrower.fullName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>เลขบัตร:</span>
+              <span>{loan.borrower.citizenId}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>เบอร์โทร:</span>
+              <span>{loan.borrower.phone}</span>
+            </div>
+            {loan.guarantorName && (
+              <div className="flex justify-between pt-1 border-t border-dotted border-black">
+                <span>ผู้ค้ำ/รับรอง:</span>
+                <span>{loan.guarantorName}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="py-2 border-b border-dashed border-black space-y-1">
+            <div className="flex justify-between font-bold">
+              <span>ยอดเงินกู้:</span>
+              <span>{loan.initialPrincipal.toLocaleString()} ฿</span>
+            </div>
+            <div className="flex justify-between">
+              <span>รอบสัญญา:</span>
+              <span>{loan.termType === "DAYS_7" ? "ทุก 7 วัน (15%)" : "ทุก 10 วัน (20%)"}</span>
+            </div>
+            {loan.isUpfrontDeduction && (
+              <>
+                <div className="flex justify-between">
+                  <span>หักดอกล่วงหน้า:</span>
+                  <span>-{loan.upfrontDeductionAmount.toLocaleString()} ฿</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>ยอดโอนจริง:</span>
+                  <span>{loan.disbursedAmount.toLocaleString()} ฿</span>
+                </div>
+              </>
+            )}
+            <div className="flex justify-between font-bold pt-1 border-t border-dotted border-black">
+              <span>กำหนดชำระคืน:</span>
+              <span>{dueDateSummary}</span>
+            </div>
+            <div className="flex justify-between text-[10px]">
+              <span>เบี้ยปรับล่าช้า:</span>
+              <span>{loan.dailyPenaltyRate || 50} ฿/วัน</span>
+            </div>
+          </div>
+
+          <div className="py-2 border-b border-dashed border-black text-[10px] text-center leading-tight">
+            ผู้กู้ได้รับเงินกู้ครบถ้วนแล้ว ตกลงชำระเงินต้นและดอกเบี้ยตามกำหนด หากผิดนัดยินยอมชดใช้เบี้ยปรับตามสัญญา
+          </div>
+
+          <div className="py-2 border-b border-dashed border-black grid grid-cols-2 gap-2 text-center text-[10px]">
+            <div>
+              <p className="font-semibold mb-1">ผู้ให้กู้</p>
+              <div className="h-10 flex items-center justify-center">
+                <LenderSignature className="h-9 w-auto object-contain grayscale contrast-200" />
+              </div>
+              <p className="text-[9px]">(ฟิลิปดา)</p>
+            </div>
+            <div>
+              <p className="font-semibold mb-1">ผู้กู้</p>
+              <div className="h-10 flex items-center justify-center">
+                {borrowerSig ? (
+                  <img src={borrowerSig} alt="sig" className="h-9 max-w-full object-contain grayscale contrast-200" />
+                ) : (
+                  <span className="text-[9px] italic">ยังไม่ลงนาม</span>
+                )}
+              </div>
+              <p className="text-[9px]">({loan.borrower.fullName})</p>
+            </div>
+          </div>
+
+          <div className="pt-2 text-center text-[9px] text-zinc-600 space-y-0.5">
+            <p>สัญญาอิเล็กทรอนิกส์ตาม พ.ร.บ.ธุรกรรมฯ</p>
+            <p>ESC/POS Thermal Contract v1.0</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

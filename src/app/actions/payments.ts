@@ -20,8 +20,11 @@ export async function recordPaymentAction(input: RecordPaymentInput) {
     await syncDbFromBlob(true);
 
     const session = await getSession();
-    const actorUsername = session?.username || "agent1";
-    const actorUserId = session?.id;
+    if (!session) {
+      return { success: false, error: "กรุณาเข้าสู่ระบบก่อนบันทึกการชำระเงิน" };
+    }
+    const actorUsername = session.username || "agent1";
+    const actorUserId = session.id;
 
     const { loanId, payType, amountPaid, notes, slipUrl } = input;
 

@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { safeRevalidate } from "@/lib/safe-revalidate";
 import { syncDbFromBlob, saveDbToBlob } from "@/lib/blob-sync";
+import { getSession } from "@/app/actions/auth";
+import { logAudit } from "@/lib/audit";
 
 export async function saveSignatureAction(params: {
   loanId: string;
@@ -54,6 +56,20 @@ export async function saveSignatureAction(params: {
       data: updateData,
     });
 
+    const session = await getSession();
+    await logAudit(
+      session?.id || loan.agentId,
+      "CONTRACT_SIGN",
+      loan.id,
+      {
+        borrowerName: loan.borrower.fullName,
+        signerRole: role,
+        contractType: loan.contractType,
+        fullySigned: willHaveBorrowerSig && willHaveGuarantorSig,
+        signedBy: session?.username || role,
+      }
+    );
+
     await saveDbToBlob();
 
     safeRevalidate(`/loans/${loanId}/contract`);
@@ -72,9 +88,23 @@ export async function clearSignatureAction(params: {
   role: "borrower" | "guarantor";
 }) {
   try {
+    const session = await getSession();
+    if (!session || session.role !== "OWNER") {
+      return { success: false, error: "สงวนสิทธิ์เฉพาะนายทุน (Owner) ในการลบลายมือชื่อสัญญา" };
+    }
+
     await syncDbFromBlob(true);
 
     const { loanId, role } = params;
+
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { borrower: true },
+    });
+
+    if (!loan) {
+      return { success: false, error: "ไม่พบข้อมูลสัญญาเงินกู้" };
+    }
 
     const updateData: {
       borrowerSignature?: string | null;
@@ -94,6 +124,17 @@ export async function clearSignatureAction(params: {
       where: { id: loanId },
       data: updateData,
     });
+
+    await logAudit(
+      session?.id || loan.agentId,
+      "CONTRACT_CLEAR_SIGN",
+      loan.id,
+      {
+        borrowerName: loan.borrower.fullName,
+        clearedRole: role,
+        clearedBy: session?.username || "OWNER",
+      }
+    );
 
     await saveDbToBlob();
 

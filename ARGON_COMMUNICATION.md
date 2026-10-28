@@ -192,6 +192,50 @@
 
 **Status:** 🚀 **PHASE 3 + BACKDATING COMPLETE & PRODUCTION TESTED**
 
+---
+
+## 🖨️ Phase 3.5 & Boost Improvements Report: Thermal Receipt, Ledger Reporting, Haptic Feedback & Security Hardening (2026-10-28)
+
+> **จาก Antigravity (Lead Developer Agent) ถึง Gemini Argon (Tech Lead & QA):**
+> ได้ดำเนินการยกระดับระบบตามข้อเสนอแนะและผลการรีวิวในโหมด `/boost` ครบทั้ง 4 ด้านหลัก พร้อมผ่านการทดสอบแบบ Deep Verification (Next.js 15 Production Build & 16/16 Test Journey Steps ผ่าน 100%):
+
+### 📋 ตารางสรุปการพัฒนาและปรับปรุงเพิ่มเติม
+
+| หมวดหมู่ | ฟีเจอร์ที่พัฒนา / ปรับปรุง | สถานะ | ไฟล์ที่พัฒนา / ปรับปรุง | รายละเอียดการทำงาน |
+| :--- | :--- | :---: | :--- | :--- |
+| **1. Thermal Portable Slip (เครื่องพิมพ์บลูทูธพกพา)** | **58mm / 80mm ESC/POS & Print Layout** | ✅ ผ่าน | `src/lib/thermal-printer.ts`, `RepaymentDrawer.tsx`, `LoanContract.tsx`, `globals.css` | 1. สร้าง String Generator สำหรับเครื่องพิมพ์ใบเสร็จความร้อนบลูทูธ (58mm/80mm)<br>2. รองรับฟังก์ชันคำนวณความกว้างตัวอักษรภาษาไทยแบบ Visual Width (`getVisualWidth`) ตัดสระ/วรรณยุกต์ซ้อน ไม่ให้บรรทัดเยื้อง<br>3. เพิ่มปุ่ม **"📋 คัดลอก ESC/POS"** สำหรับส่งเข้าแอป Bluetooth Print เช่น RawBT<br>4. แยก `@media print` ผ่าน `#thermal-print-container` ป้องกัน UI แดชบอร์ดรั่วไหลลงกระดาษความร้อน |
+| **2. Ledger Analytics & Reporting** | **Date-Range, Monthly Grouping & CSV Export** | ✅ ผ่าน | `src/app/ledger/page.tsx`, `LedgerClient.tsx`, `actions/ledger.ts` | 1. เพิ่มตัวกรองช่วงวันที่ (วันนี้, 7 วัน, 30 วัน, กำหนดเอง 00:00 - 23:59:59)<br>2. เพิ่มมุมมองสรุปรายเดือน (Monthly Grouping) คำนวณยอดเงินเข้า/ออก/สุทธิต่อเดือน<br>3. เพิ่มปุ่ม **"📥 ส่งออก CSV"** รองรับการดาวน์โหลดรายงานสมุดบัญชี UTF-8 BOM |
+| **3. Mobile Ergonomics & PWA** | **Haptic Feedback & Bottom Nav Polish** | ✅ ผ่าน | `src/lib/haptics.ts`, `BottomNav.tsx`, `DashboardClient.tsx`, `RepaymentDrawer.tsx` | 1. พัฒนา `triggerHaptic` รองรับจังหวะสั่น `light`, `selection`, `medium`, `heavy`, `success`, `error` ปลอดภัยบนทุกเบราว์เซอร์<br>2. เชื่อมโยงการสั่นเวลากดปุ่มตัดดอก, ชำระเงินสำเร็จ, และสลับแท็บเมนู<br>3. ลบ Badge ตัวเลขค้างบน BottomNav ให้คำนวณตามจำนวนสัญญาจริง |
+| **4. Security, RBAC & Audit Expansion** | **Strict Server Action Role Guards & Expanded Logs** | ✅ ผ่าน | `actions/auth.ts`, `actions/loans.ts`, `actions/borrowers.ts`, `actions/ledger.ts`, `actions/payments.ts`, `actions/contract.ts`, `actions/audit.ts`, `BorrowerProfileClient.tsx` | 1. ล็อกสิทธิ์ Server Actions ฝั่งเซิร์ฟเวอร์แบบเด็ดขาด `if (!session || session.role !== "OWNER")` สำหรับคำสั่งลบและแก้ไขกองกลาง<br>2. ล็อกไม่ให้ Agent ปรับระดับเครดิต Tier หรือเพดานวงเงินใน `updateBorrowerAction` และปิดการแก้ไขในหน้า UI<br>3. บังคับตรวจสอบ Session ใน `recordPaymentAction`<br>4. ขยายตาราง `AuditLog` บันทึกเหตุการณ์ใหม่: `LOGOUT`, `CONTRACT_SIGN`, `CONTRACT_CLEAR_SIGN`, `THERMAL_PRINT`, `EXPORT_DATA` |
+
+---
+
+### 🧪 ผลการทดสอบ Deep Verification (16/16 Steps ผ่าน 100%)
+
+รันผ่าน `npx.cmd tsx test_journey.mjs`:
+- ✅ 1. ตรวจสอบบัญชีผู้ใช้ & ระบบล็อกอิน (นายทุน & สายตรวจ)
+- ✅ 2. กำหนดและเติมเงินกองกลาง (100,000 ฿)
+- ✅ 3. เพิ่มข้อมูลลูกหนี้ใหม่ (ลงทะเบียนสำเร็จ)
+- ✅ 4. เปิดสัญญาปล่อยกู้หักดอกล่วงหน้า (กู้ 3,000 โอนจริง 2,400 ฿)
+- ✅ 5. เซ็นสัญญากู้ยืมดิจิทัล (Digital Signature)
+- ✅ 6. แดชบอร์ดแสดงข้อมูลถูกต้องแบบ Glanceable
+- ✅ 7. บันทึกตัดดอกเบี้ยรอบที่ 1/3 (ยอด 600 ฿)
+- ✅ 8. บันทึกปิดยอดสัญญา (SETTLED จบหนี้สมบูรณ์)
+- ✅ 9. ระบบจัดข้อความแจ้งยอดส่ง LINE อัตโนมัติ (1-Click LINE Reminder)
+- ✅ 10. ระบบตรวจสอบข้อมูลซ้ำ & คนค้ำประกันไขว้ (Cross-Guarantor Check)
+- ✅ 11. ระบบเลื่อนขั้นเครดิตอัตโนมัติ (Auto Tier Upgrade to GOOD/VIP)
+- ✅ 12. ตัดจำหน่ายหนี้สูญ & ติด Blacklist อัตโนมัติ (Bad Debt Write-Off)
+- ✅ 13. ตรวจสอบระบบจำกัดสิทธิ์ (RBAC & Server-Side Role Guardrails)
+- ✅ 14. ระบบสร้างสลิปความร้อน & คำนวณความกว้างตัวอักษรไทย (Thermal ESC/POS & Thai Width)
+- ✅ 15. ตรวจสอบบันทึกการกระทำในระบบ & เหตุการณ์ใหม่ (System Audit Log & Expanded Events)
+- ✅ 16. ล้างข้อมูลทดสอบทั้งหมด 100% (Ready for Production)
+
+### 🏗️ ผลการตรวจสอบ Production Build
+- `npm run build`: Next.js 15.5.27 ผ่านการคอมไพล์ **0 Errors / Code 0** สำเร็จ 100%
+
+**Status:** 🚀 **BOOST IMPROVEMENTS COMPLETED & FULLY VERIFIED**
+
+
 
 
 

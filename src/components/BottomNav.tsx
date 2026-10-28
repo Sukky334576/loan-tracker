@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { CalendarCheck, Users, PlusCircle, Wallet, History } from "lucide-react";
+import { triggerHaptic } from "@/lib/haptics";
 
 interface BottomNavProps {
   currentRole: "OWNER" | "AGENT";
+  badgeCount?: number;
 }
 
-export function BottomNav({ currentRole }: BottomNavProps) {
+export function BottomNav({ currentRole, badgeCount }: BottomNavProps) {
   const pathname = usePathname();
 
   const navItems = [
@@ -18,7 +20,7 @@ export function BottomNav({ currentRole }: BottomNavProps) {
       label: "ยอดวันนี้",
       href: "/",
       icon: CalendarCheck,
-      badge: 3,
+      badge: badgeCount,
     },
     {
       label: "ลูกหนี้",
@@ -53,6 +55,7 @@ export function BottomNav({ currentRole }: BottomNavProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => triggerHaptic("medium")}
                 className="group relative -top-3.5 flex flex-col items-center select-none"
               >
                 <motion.div
@@ -72,6 +75,7 @@ export function BottomNav({ currentRole }: BottomNavProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => triggerHaptic("selection")}
               className="relative flex flex-col items-center justify-center py-1.5 px-3 rounded-xl select-none"
             >
               <motion.div

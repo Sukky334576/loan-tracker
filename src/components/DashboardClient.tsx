@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { exportToCsv } from "@/lib/export-csv";
 import { usePrivacyMode, formatPrivateAmount } from "@/lib/privacy";
+import { triggerHaptic } from "@/lib/haptics";
 
 interface DashboardClientProps {
   initialLoans: LoanCardData[];
@@ -345,7 +346,10 @@ export function DashboardClient({
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setFilter(tab.id)}
+                  onClick={() => {
+                    triggerHaptic("selection");
+                    setFilter(tab.id);
+                  }}
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 font-semibold transition-all duration-150 select-none cursor-pointer active:scale-95 shadow-2xs ${
                     isSelected
                       ? "bg-zinc-900 text-white shadow-xs scale-100"
@@ -362,7 +366,10 @@ export function DashboardClient({
 
             <button
               type="button"
-              onClick={handleExportCsv}
+              onClick={() => {
+                triggerHaptic("light");
+                handleExportCsv();
+              }}
               className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 font-semibold text-zinc-700 shadow-2xs transition-all hover:bg-zinc-100 active:scale-95 cursor-pointer text-xs"
               title="ส่งออกรายงานสัญญาเงินกู้เป็น CSV"
             >
@@ -380,8 +387,15 @@ export function DashboardClient({
                 <LoanCard
                   key={loan.id}
                   loan={loan}
-                  onPaymentClick={() => setSelectedLoanForPayment(loan)}
-                  onDeleteClick={() => setLoanToDelete(loan)}
+                  userRole={role}
+                  onPaymentClick={() => {
+                    triggerHaptic("medium");
+                    setSelectedLoanForPayment(loan);
+                  }}
+                  onDeleteClick={() => {
+                    triggerHaptic("heavy");
+                    setLoanToDelete(loan);
+                  }}
                 />
               ))}
             </div>
@@ -404,6 +418,7 @@ export function DashboardClient({
         onClose={() => setSelectedLoanForPayment(null)}
         onSuccess={handlePaymentSuccess}
         onDeleteRequest={(loan) => setLoanToDelete(loan)}
+        userRole={role}
       />
 
       {/* Delete Confirmation Modal */}

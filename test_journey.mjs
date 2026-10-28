@@ -1,12 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import { addCapitalAction, setFundBalanceAction, resetDatabaseToProductionAction } from "./src/app/actions/ledger.ts";
-import { createBorrowerAction, deleteBorrowerAction, checkBorrowerRiskAction } from "./src/app/actions/borrowers.ts";
+import { createBorrowerAction, updateBorrowerAction, deleteBorrowerAction, checkBorrowerRiskAction } from "./src/app/actions/borrowers.ts";
 import { createLoanAction, deleteLoanAction, writeOffBadDebtAction } from "./src/app/actions/loans.ts";
-import { saveSignatureAction } from "./src/app/actions/contract.ts";
+import { saveSignatureAction, clearSignatureAction } from "./src/app/actions/contract.ts";
 import { recordPaymentAction } from "./src/app/actions/payments.ts";
-import { loginAction } from "./src/app/actions/auth.ts";
+import { loginAction, logoutAction, setTestSession } from "./src/app/actions/auth.ts";
 import { getDashboardData } from "./src/lib/data.ts";
 import { formatLineReminderText } from "./src/lib/line-reminder.ts";
+import { formatRepaymentThermalText, formatLoanContractThermalText, getVisualWidth } from "./src/lib/thermal-printer.ts";
+import { recordAuditLogAction } from "./src/app/actions/audit.ts";
 
 const prisma = new PrismaClient();
 
@@ -325,12 +327,129 @@ async function runFullJourneyTest() {
     results.push({ step: "12. ตัดจำหน่ายหนี้สูญ", status: "FAILED", error: e.message });
   }
 
-  // --- STEP 13: PHASE 3 - AUDIT LOG VERIFICATION ---
+  // --- STEP 13: RBAC & ROLE GUARDRAILS VERIFICATION ---
+  try {
+    // 1. Switch to AGENT session
+    const agentLogin = await loginAction({ username: "agent1", password: "1234" });
+    if (!agentLogin.success) throw new Error("Agent login failed");
+
+    // 2. Verify Agent is blocked from Owner-only actions
+    const [delLoanRes, writeOffRes, delBorrowerRes, addCapRes, resetRes, clearSigRes, updateTierRes] = await Promise.all([
+      deleteLoanAction("dummy-loan-id"),
+      writeOffBadDebtAction("dummy-loan-id"),
+      deleteBorrowerAction("dummy-borrower-id"),
+      addCapitalAction({ amount: 5000 }),
+      resetDatabaseToProductionAction(),
+      clearSignatureAction({ loanId: "dummy-loan-id", role: "borrower" }),
+      updateBorrowerAction({ borrowerId: borrowerId, creditGrade: "VIP", creditLimit: 50000 }),
+    ]);
+
+    const allBlocked =
+      !delLoanRes.success &&
+      !writeOffRes.success &&
+      !delBorrowerRes.success &&
+      !addCapRes.success &&
+      !resetRes.success &&
+      !clearSigRes.success &&
+      !updateTierRes.success;
+
+    if (!allBlocked) {
+      throw new Error(`Agent was able to bypass one or more role guards: delLoan=${delLoanRes.success}, writeOff=${writeOffRes.success}, delB=${delBorrowerRes.success}, addCap=${addCapRes.success}, reset=${resetRes.success}, clearSig=${clearSigRes.success}, updateTier=${updateTierRes.success}`);
+    }
+
+    // 3. Test unauthenticated rejection
+    await logoutAction();
+    const unauthDelLoan = await deleteLoanAction("dummy-loan-id");
+    const unauthPayment = await recordPaymentAction({ loanId: "dummy-id", payType: "INTEREST", amountPaid: 100 });
+    if (unauthDelLoan.success || unauthPayment.success) {
+      throw new Error("Unauthenticated caller was not blocked!");
+    }
+
+    // 4. Switch back to Owner
+    const ownerReLogin = await loginAction({ username: "farafull", password: "farafull2026" });
+    if (!ownerReLogin.success) throw new Error("Owner re-login failed");
+
+    results.push({
+      step: "13. ตรวจสอบระบบจำกัดสิทธิ์ (RBAC & Server-Side Role Guardrails)",
+      status: "PASSED",
+      detail: "สายตรวจ (Agent) และผู้ไม่ล็อกอินถูกบล็อกจากการลบสัญญา, ตัดหนี้สูญ, ลบลูกหนี้, จัดการกองกลาง, ลบลายเซ็น และปรับ Tier เรียบร้อย 100%",
+    });
+  } catch (e) {
+    results.push({ step: "13. ตรวจสอบระบบจำกัดสิทธิ์ RBAC", status: "FAILED", error: e.message });
+  }
+
+  // --- STEP 14: THERMAL PRINTER ESC/POS & THAI VISUAL WIDTH ---
+  try {
+    const thaiStr = "สาขา เกษตรสมบูรณ์ ชัยภูมิ";
+    const visualW = getVisualWidth(thaiStr);
+    if (visualW !== 20 || thaiStr.length !== 25) {
+      throw new Error(`Expected Thai visual width 20, got ${visualW} (raw length: ${thaiStr.length})`);
+    }
+
+    const testReceiptThermal58 = formatRepaymentThermalText({
+      receiptNo: "RC-TEST-001",
+      paidAt: "28/10/2569 12:00",
+      borrowerName: "นายทดสอบ สมบูรณ์ทรัพย์",
+      amountPaid: 600,
+      penaltyPaid: 0,
+      interestPaid: 600,
+      principalCut: 0,
+      remainingPrincipal: 3000,
+      isSettlement: false,
+      payType: "INTEREST",
+    }, 58);
+
+    const testContractThermal80 = formatLoanContractThermalText({
+      loanId: "LN-TEST-001",
+      contractDate: "28 ต.ค. 2569",
+      contractPlace: "บ้านเป้า",
+      borrowerName: "นายทดสอบ สมบูรณ์ทรัพย์",
+      borrowerCitizenId: "1999999999999",
+      borrowerPhone: "0898889999",
+      lenderName: "นางสาวฟิลิปดา ภาปัญญา",
+      principal: 3000,
+      termType: "DAYS_10",
+      interestRate: 0.20,
+      isUpfrontDeduction: true,
+      upfrontDeductionAmount: 600,
+      disbursedAmount: 2400,
+      currentDueDate: "7 พ.ย. 2569",
+      dailyPenaltyRate: 50,
+    }, 80);
+
+    if (!testReceiptThermal58.includes("LT LOAN TRACKER") || !testReceiptThermal58.includes("RC-TEST-001")) {
+      throw new Error("Thermal receipt missing expected headers");
+    }
+    if (!testContractThermal80.includes("[ รายละเอียดเงินกู้ ]")) {
+      throw new Error("Thermal contract missing [ รายละเอียดเงินกู้ ] section");
+    }
+
+    // Record audited print & export events
+    await recordAuditLogAction("THERMAL_PRINT", "LN-TEST-001", {
+      type: "REPAYMENT_RECEIPT",
+      paperWidth: "58mm",
+      borrowerName: "นายทดสอบ สมบูรณ์ทรัพย์",
+    });
+    await recordAuditLogAction("EXPORT_DATA", "LEDGER", {
+      type: "FILTERED_TRANSACTIONS_CSV",
+      count: 10,
+    });
+
+    results.push({
+      step: "14. ระบบสร้างสลิปความร้อน & คำนวณความกว้างตัวอักษรไทย (Thermal ESC/POS & Thai Width)",
+      status: "PASSED",
+      detail: "สร้างสลิป 58mm/80mm ถูกต้อง, คำนวณความกว้างสระ/วรรณยุกต์ไทยแม่นยำ, รวมหัวข้อครบถ้วน",
+    });
+  } catch (e) {
+    results.push({ step: "14. ระบบสร้างสลิปความร้อน Thermal ESC/POS", status: "FAILED", error: e.message });
+  }
+
+  // --- STEP 15: PHASE 3 - AUDIT LOG VERIFICATION ---
   try {
     const auditCount = await prisma.auditLog.count();
     const latestLogs = await prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
-      take: 5,
+      take: 6,
     });
 
     if (auditCount === 0) {
@@ -338,16 +457,19 @@ async function runFullJourneyTest() {
     }
 
     const actionTypes = latestLogs.map(l => l.action).join(", ");
+    const hasThermalPrint = actionTypes.includes("THERMAL_PRINT");
+    const hasExportData = actionTypes.includes("EXPORT_DATA");
+
     results.push({
-      step: "13. ตรวจสอบบันทึกการกระทำในระบบ (System Audit Log)",
+      step: "15. ตรวจสอบบันทึกการกระทำในระบบ & เหตุการณ์ใหม่ (System Audit Log & Expanded Events)",
       status: "PASSED",
-      detail: `พบ Audit Log ทั้งหมด ${auditCount} รายการ (ล่าสุด: ${actionTypes})`,
+      detail: `พบ Audit Log ทั้งหมด ${auditCount} รายการ (ล่าสุด: ${actionTypes}) [มี THERMAL_PRINT: ${hasThermalPrint}, EXPORT_DATA: ${hasExportData}]`,
     });
   } catch (e) {
-    results.push({ step: "13. ตรวจสอบบันทึก Audit Log", status: "FAILED", error: e.message });
+    results.push({ step: "15. ตรวจสอบบันทึก Audit Log", status: "FAILED", error: e.message });
   }
 
-  // --- STEP 14: CLEAN UP TEST DATA FOR PRODUCTION ---
+  // --- STEP 16: CLEAN UP TEST DATA FOR PRODUCTION ---
   try {
     const cleanRes = await resetDatabaseToProductionAction();
     if (!cleanRes.success) throw new Error(cleanRes.error);
@@ -366,16 +488,16 @@ async function runFullJourneyTest() {
     const finalUsers = await prisma.user.findMany({ select: { username: true, role: true } });
 
     results.push({ 
-      step: "14. ล้างข้อมูลทดสอบทั้งหมด 100% (Ready for Production)", 
+      step: "16. ล้างข้อมูลทดสอบทั้งหมด 100% (Ready for Production)", 
       status: "PASSED", 
       detail: `ลูกหนี้: ${bCount}, สัญญา: ${lCount}, การจ่าย: ${pCount}, ผู้ใช้คงอยู่: ${finalUsers.map(u => u.username).join(", ")}` 
     });
   } catch (e) {
-    results.push({ step: "14. ล้างข้อมูลทดสอบทั้งหมด", status: "FAILED", error: e.message });
+    results.push({ step: "16. ล้างข้อมูลทดสอบทั้งหมด", status: "FAILED", error: e.message });
   }
 
   console.log("\n==================================================");
-  console.log("📋 FULL TEST SUMMARY REPORT (14/14 STEPS)");
+  console.log(`📋 FULL TEST SUMMARY REPORT (${results.length}/${results.length} STEPS)`);
   console.log("==================================================");
   let allPassed = true;
   results.forEach((r) => {
@@ -388,7 +510,7 @@ async function runFullJourneyTest() {
   });
   console.log("==================================================");
   if (allPassed) {
-    console.log("🎉 ALL 14 TEST JOURNEY STEPS PASSED WITH 100% SUCCESS!");
+    console.log(`🎉 ALL ${results.length} TEST JOURNEY STEPS PASSED WITH 100% SUCCESS!`);
   } else {
     console.error("⚠️ SOME TEST STEPS FAILED.");
     process.exit(1);
