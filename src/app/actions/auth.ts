@@ -91,6 +91,7 @@ export async function loginAction(params: {
       if (
         cleanPassword === "1234" ||
         cleanPassword === "agent1234" ||
+        cleanPassword === "agent12026" ||
         cleanPassword === targetUser.passwordHash
       ) {
         isPasswordCorrect = true;
@@ -102,7 +103,7 @@ export async function loginAction(params: {
         success: false,
         error: isOwner
           ? "รหัสผ่านไม่ถูกต้อง (สำหรับนายทุนใช้รหัส: farafull2026)"
-          : "รหัสผ่านไม่ถูกต้อง (สำหรับสายตรวจใช้รหัส: 1234)",
+          : "รหัสผ่านไม่ถูกต้อง (สำหรับสายตรวจใช้รหัส: agent12026 หรือ 1234)",
       };
     }
 

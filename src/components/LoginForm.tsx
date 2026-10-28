@@ -158,7 +158,7 @@ export function LoginForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={selectedRole === "OWNER" ? "กรอกรหัสผ่านนายทุน (farafull2026)" : "กรอกรหัสผ่าน (1234)"}
+                placeholder={selectedRole === "OWNER" ? "กรอกรหัสผ่านนายทุน (farafull2026)" : "กรอกรหัสผ่าน (agent12026 หรือ 1234)"}
                 className="w-full rounded-xl border border-zinc-300 bg-zinc-50/70 pl-10 pr-3.5 py-2.5 text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-600 focus:outline-none transition-all"
               />
             </div>
@@ -201,7 +201,7 @@ export function LoginForm() {
             • <strong>นายทุน:</strong> ID: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">farafull</code> (Pass: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">farafull2026</code>)
           </p>
           <p className="mt-0.5">
-            • <strong>สายตรวจ:</strong> ID: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">agent1</code> (Pass: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">1234</code>)
+            • <strong>สายตรวจ:</strong> ID: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">agent1</code> (Pass: <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">agent12026</code> หรือ <code className="bg-zinc-200/70 px-1 py-0.5 rounded text-zinc-800">1234</code>)
           </p>
         </div>
       </div>
